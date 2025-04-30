@@ -1,0 +1,64 @@
+# Default Configuration for Build Influence
+
+# Logging settings (can be overridden by environment variables)
+logging:
+  level: INFO
+  file: logs/build_influence.log
+  rotation: "10 MB"
+  retention: "30 days"
+
+# AI Model settings (using LiteLLM)
+llm:
+  model: "claude-3-5-sonnet-20241022" # Example, adjust as needed
+  max_tokens: 1500
+  temperature: 0.7
+  # Add API keys via environment variables (e.g., ANTHROPIC_API_KEY)
+
+# Repository Analysis settings
+analysis:
+  max_files_to_parse: 1000
+  excluded_dirs:
+    [
+      ".git",
+      "__pycache__",
+      "node_modules",
+      "build",
+      "dist",
+      ".venv",
+      "env",
+      "venv",
+    ]
+  excluded_files: []
+  language_parsers: # Add more as needed
+    - python
+    - javascript
+    - markdown
+    - rst # reStructuredText
+
+# Content Generation settings
+generation:
+  default_tone: "informative and slightly informal"
+  max_retries: 3
+  # Templates can be defined here or loaded from separate files
+
+# User Preferences (Defaults)
+preferences:
+  platforms:
+    - devto
+    # - twitter # Example platforms
+    # - linkedin
+  content_tone: null # If null, uses generation.default_tone
+  approval_workflow: "manual" # Options: manual, automatic
+  publication_frequency: "manual" # Options: manual, daily, weekly, etc.
+
+# Publication settings (Platform specific details)
+publication:
+  devto:
+    # Add API key via environment variable DEVTO_API_KEY
+    default_tags: ["programming", "opensource", "code"]
+  twitter:
+    # Add API keys/tokens via environment variables
+    default_hashtags: ["#buildinpublic", "#dev"]
+  linkedin:
+    # Add API keys/tokens via environment variables
+    share_visibility: "connections" # anyone or connections

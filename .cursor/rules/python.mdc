@@ -1,5 +1,5 @@
 ---
-description:
+description: 
 globs: **/*.py, src/**/*.py, tests/**/*.py
 alwaysApply: false
 ---
@@ -104,7 +104,7 @@ globs: **/*.py, src/**/*.py, tests/**/*.py
 - Use Google-style docstrings
 - Document all public APIs
 - Keep README.md updated
-- Use proper inline comments
+- NEVER proper inline comments
 - Generate API documentation
 - Document environment setup
 
