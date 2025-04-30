@@ -1,0 +1,22 @@
+---
+description:
+globs:
+alwaysApply: true
+---
+
+# Your rule content
+
+- use python version 3.12 only
+- Use FastAPI exclusively
+- always add tests using pytest
+- always add imports at the top of the file, never in a function
+- if a code is defined somewhere reuse it or refactor it
+- files can't exceed 300 lined of code at that point refactor
+- don't document obvious lined of code
+- use pydantic for types and objects
+- if a database is needed use SQLModel
+- if a LLM call is needed use LiteLLM
+- if an email is needed use resend
+- use httpx for requests
+- for logging use loguru
+-
