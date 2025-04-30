@@ -9,11 +9,11 @@ logging:
 
 # AI Model settings (using LiteLLM)
 llm:
-  model: "claude-3-5-sonnet-20241022" # Example, adjust as needed
+  model: "gpt-4.1" # Example, adjust as needed
   max_tokens: 1500
   temperature: 0.7
   # Add API keys via environment variables (e.g., ANTHROPIC_API_KEY)
-
+  api_key: "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"
 # Repository Analysis settings
 analysis:
   max_files_to_parse: 1000

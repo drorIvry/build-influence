@@ -6,4 +6,5 @@ typer[all]
 pyyaml
 python-dotenv
 python-box
+tqdm
  

@@ -1,0 +1,509 @@
+{
+  "repo_name": "build-influence",
+  "repo_path": "/Users/drorivry/develop/build-influence",
+  "metadata": {
+    "type": "git",
+    "branches": [
+      "main"
+    ],
+    "current_branch": "main"
+  },
+  "file_tree": [
+    {
+      "path": "requirements.txt",
+      "absolute_path": "/Users/drorivry/develop/build-influence/requirements.txt",
+      "size": 75,
+      "type": "documentation",
+      "ai_doc_insights": {
+        "summary": "This requirements.txt file specifies dependencies for a Python project likely focused on command-line tools, configuration management, logging, and testing.",
+        "features": [
+          "CLI interface with Typer",
+          "Logging with Loguru",
+          "Configuration management via PyYAML, python-dotenv, and python-box",
+          "Progress bars with tqdm",
+          "Testing with pytest",
+          "Integration with LiteLLM and MCP"
+        ],
+        "setup_steps": [
+          "Create a virtual environment: python -m venv venv",
+          "Activate the virtual environment",
+          "Install dependencies: pip install -r requirements.txt"
+        ],
+        "usage_examples": [
+          "Run CLI tool: python your_script.py [options]",
+          "Run tests: pytest"
+        ]
+      }
+    },
+    {
+      "path": "config.yaml",
+      "absolute_path": "/Users/drorivry/develop/build-influence/config.yaml",
+      "size": 1857,
+      "type": "configuration"
+    },
+    {
+      "path": "todo.md",
+      "absolute_path": "/Users/drorivry/develop/build-influence/todo.md",
+      "size": 12596,
+      "type": "documentation",
+      "ai_doc_insights": {
+        "summary": "A comprehensive system to automate code repository content marketing, enabling analysis of repositories, AI-driven content generation, multi-platform publishing, user interaction, and workflow management.",
+        "features": [
+          "Repository analysis and parsing",
+          "AI-powered content generation and template system",
+          "Multi-platform content adaptation and publishing (Dev.to, Twitter/X, LinkedIn)",
+          "Interview-style user interaction for missing info",
+          "Configurable approval and publication workflow",
+          "MCP and external tool integration",
+          "Robust error handling and retry logic",
+          "CLI interface for all operations",
+          "Unit, integration, and end-to-end testing",
+          "Performance optimization and caching",
+          "User and developer documentation"
+        ],
+        "setup_steps": [
+          "Create project directory structure",
+          "Set up Python virtual environment (Python 3.12)",
+          "Create requirements.txt with dependencies (LiteLLM, MCP client, Loguru, Pytest, Asyncio, etc.)",
+          "Create setup.py for packaging",
+          "Write initial README.md",
+          "Create main entry point script (main.py)",
+          "Set up git and .gitignore"
+        ],
+        "usage_examples": [
+          "Analyze a local git repository to extract features and documentation",
+          "Generate a technical blog post and publish it on Dev.to",
+          "Create a Twitter thread summarizing new repository features",
+          "Configure content tone and approval workflow via CLI",
+          "Schedule recurring LinkedIn posts for new releases"
+        ]
+      }
+    },
+    {
+      "path": "README.md",
+      "absolute_path": "/Users/drorivry/develop/build-influence/README.md",
+      "size": 302,
+      "type": "documentation",
+      "ai_doc_insights": {
+        "summary": "A system to analyze code repositories and automatically generate content for various platforms, helping developers build influence.",
+        "features": [],
+        "setup_steps": [],
+        "usage_examples": []
+      }
+    },
+    {
+      "path": "analysis_results.json",
+      "absolute_path": "/Users/drorivry/develop/build-influence/analysis_results.json",
+      "size": 21625,
+      "type": "configuration"
+    },
+    {
+      "path": "setup.py",
+      "absolute_path": "/Users/drorivry/develop/build-influence/setup.py",
+      "size": 426,
+      "type": "code",
+      "ai_code_insights": {
+        "purpose": "Defines the packaging and distribution configuration for the 'build_influence' Python project.",
+        "key_elements": [],
+        "dependencies": [
+          "from setuptools import setup, find_packages"
+        ],
+        "interesting_aspects": [
+          "uses src layout for packages",
+          "defines a console script entry point"
+        ]
+      }
+    },
+    {
+      "path": ".gitignore",
+      "absolute_path": "/Users/drorivry/develop/build-influence/.gitignore",
+      "size": 2099,
+      "type": "other"
+    },
+    {
+      "path": "SPEC.md",
+      "absolute_path": "/Users/drorivry/develop/build-influence/SPEC.md",
+      "size": 4284,
+      "type": "documentation",
+      "ai_doc_insights": {
+        "summary": "A fully automated system that analyzes code repositories to generate tailored content for dev.to, Twitter/X, and LinkedIn to enhance visibility, build brand, and drive project traffic.",
+        "features": [
+          "Support for analyzing personal and professional repositories",
+          "Parsing code, documentation, and README files",
+          "Identification of technical aspects (architecture, features, tech stack)",
+          "Platform-specific content generation (dev.to, Twitter/X, LinkedIn)",
+          "Content types: introductions, deep-dives, architecture breakdowns, feature highlights, release notes adaptation",
+          "AI capabilities: architecture recognition, innovation detection, problem-solving analysis, tech rationale extraction, performance optimization detection, developer experience evaluation",
+          "Interview mode for user context",
+          "Configurable approval workflow",
+          "Content review and edit interface",
+          "Repository Analyzer, Content Generator, Publication Manager, and User Interface components",
+          "Integration with GitHub/GitLab, Context7 MCP, and platform APIs",
+          "Error handling with retries and notifications",
+          "Configurable platform selection, workflow, scheduling, monitoring, and content preferences",
+          "Testing: unit, integration, user acceptance, publication verification",
+          "MVP: local repo support, manual approval, one-time analysis, all platform publication"
+        ],
+        "setup_steps": [
+          "Install Python 3.12",
+          "Set up LiteLLM for AI calls",
+          "Install and configure MCP client and server",
+          "Install loguru for logging",
+          "Install pytest for testing",
+          "Configure repository access (GitHub/GitLab/local)",
+          "Set up platform publishing APIs via MCP",
+          "Configure approval workflow and content preferences"
+        ],
+        "usage_examples": [
+          "Analyze a local GitHub repository to generate a technical deep-dive article for dev.to, a feature highlight thread for Twitter/X, and a professional summary for LinkedIn, followed by user approval and automated publishing.",
+          "Enable interview mode to provide extra project context, review generated drafts in the UI, and schedule posts for coordinated release.",
+          "Monitor a repository for new releases, trigger content generation and publication automatically (future enhancement)."
+        ]
+      }
+    },
+    {
+      "path": "prompt_plan.md",
+      "absolute_path": "/Users/drorivry/develop/build-influence/prompt_plan.md",
+      "size": 19712,
+      "type": "documentation",
+      "ai_doc_insights": {
+        "summary": "The purpose of the document is to outline a detailed, phased implementation plan for a Code Repository Content Marketing System. The system automates the analysis of code repositories, generates tailored content for multiple platforms using AI, and manages publication workflows, review, and scheduling.",
+        "features": [
+          "Modular, phased architecture for incremental development",
+          "Repository parsing with code, documentation, and technical feature analysis",
+          "AI-powered content generation with platform and content-type adaptation",
+          "User interaction including interview mode and content review interface",
+          "Configurable approval workflow and publication management",
+          "Integration with MCP and platform APIs (Dev.to, Twitter/X, LinkedIn)",
+          "Content scheduling and background publishing",
+          "Robust error handling, retry logic, and logging",
+          "Comprehensive testing (unit, integration, end-to-end)",
+          "Extensive user and developer documentation"
+        ],
+        "setup_steps": [
+          "Set up project structure and dependencies (Python 3.12, LiteLLM, MCP, Loguru, Pytest, Asyncio)",
+          "Implement robust logging and configuration system (Loguru, YAML/JSON configs, env overrides)",
+          "Create basic CLI interface with commands for analysis, content generation, publishing, configuration, and logs"
+        ],
+        "usage_examples": [
+          "Analyze a local git repository to extract technical features and documentation",
+          "Generate a technical announcement article for Dev.to with AI-enhanced explanations",
+          "Run interview mode to fill in missing context about project decisions",
+          "Review and edit LinkedIn content preview before publishing",
+          "Schedule a Twitter thread for future publication with retry on failure"
+        ]
+      }
+    },
+    {
+      "path": ".cursor/rules/clean-code.mdc",
+      "absolute_path": "/Users/drorivry/develop/build-influence/.cursor/rules/clean-code.mdc",
+      "size": 1865,
+      "type": "other"
+    },
+    {
+      "path": ".cursor/rules/tech-stack.mdc",
+      "absolute_path": "/Users/drorivry/develop/build-influence/.cursor/rules/tech-stack.mdc",
+      "size": 581,
+      "type": "other"
+    },
+    {
+      "path": ".cursor/rules/tailwind.mdc",
+      "absolute_path": "/Users/drorivry/develop/build-influence/.cursor/rules/tailwind.mdc",
+      "size": 2213,
+      "type": "other"
+    },
+    {
+      "path": ".cursor/rules/python.mdc",
+      "absolute_path": "/Users/drorivry/develop/build-influence/.cursor/rules/python.mdc",
+      "size": 3488,
+      "type": "other"
+    },
+    {
+      "path": ".cursor/rules/nextjs.mdc",
+      "absolute_path": "/Users/drorivry/develop/build-influence/.cursor/rules/nextjs.mdc",
+      "size": 1766,
+      "type": "other"
+    },
+    {
+      "path": ".cursor/rules/cloudflare-worker-typescript.mdc",
+      "absolute_path": "/Users/drorivry/develop/build-influence/.cursor/rules/cloudflare-worker-typescript.mdc",
+      "size": 2094,
+      "type": "other"
+    },
+    {
+      "path": "logs/build_influence.log",
+      "absolute_path": "/Users/drorivry/develop/build-influence/logs/build_influence.log",
+      "size": 1005620,
+      "type": "other"
+    },
+    {
+      "path": "src/build_influence.egg-info/PKG-INFO",
+      "absolute_path": "/Users/drorivry/develop/build-influence/src/build_influence.egg-info/PKG-INFO",
+      "size": 59,
+      "type": "other"
+    },
+    {
+      "path": "src/build_influence.egg-info/SOURCES.txt",
+      "absolute_path": "/Users/drorivry/develop/build-influence/src/build_influence.egg-info/SOURCES.txt",
+      "size": 574,
+      "type": "documentation",
+      "ai_doc_insights": {
+        "summary": "Lists all files included in the build_influence Python package distribution.",
+        "features": [
+          "Tracks package source, configuration, utilities, and metadata files for distribution."
+        ],
+        "setup_steps": [
+          "No setup steps required; this file is auto-generated during packaging."
+        ],
+        "usage_examples": [
+          "Not intended for direct use; consulted by packaging tools (e.g., setuptools) when building or installing the package."
+        ]
+      }
+    },
+    {
+      "path": "src/build_influence.egg-info/entry_points.txt",
+      "absolute_path": "/Users/drorivry/develop/build-influence/src/build_influence.egg-info/entry_points.txt",
+      "size": 60,
+      "type": "documentation",
+      "ai_doc_insights": {
+        "error": "Failed to decode AI JSON response: Expecting property name enclosed in double quotes: line 1 column 2 (char 1)",
+        "raw_response": "{'summary': 'Defines a console script entry point for a CLI application.', 'features': ['Provides a command-line interface via the build-influence command'], 'setup_steps': ['Install the package using pip to register the console script'], 'usage_examples': ['build-influence --help']}"
+      }
+    },
+    {
+      "path": "src/build_influence.egg-info/top_level.txt",
+      "absolute_path": "/Users/drorivry/develop/build-influence/src/build_influence.egg-info/top_level.txt",
+      "size": 16,
+      "type": "documentation",
+      "ai_doc_insights": {
+        "summary": "The document 'top_level.txt' appears to relate to a function, module, or command called 'build_influence'. Its purpose is likely to construct, calculate, or manage some aspect of influence, possibly within a computational, social network, or game-theoretic context.",
+        "features": [
+          "Ability to build or compute influence metrics or structures"
+        ],
+        "setup_steps": null,
+        "usage_examples": null
+      }
+    },
+    {
+      "path": "src/build_influence.egg-info/dependency_links.txt",
+      "absolute_path": "/Users/drorivry/develop/build-influence/src/build_influence.egg-info/dependency_links.txt",
+      "size": 1,
+      "type": "documentation",
+      "ai_doc_insights": {
+        "error": "Empty file"
+      }
+    },
+    {
+      "path": "src/build_influence/__init__.py",
+      "absolute_path": "/Users/drorivry/develop/build-influence/src/build_influence/__init__.py",
+      "size": 35,
+      "type": "code",
+      "ai_code_insights": {
+        "purpose": "Main package initializer for Build Influence; currently contains no functional code.",
+        "key_elements": [],
+        "dependencies": [],
+        "interesting_aspects": []
+      }
+    },
+    {
+      "path": "src/build_influence/cli.py",
+      "absolute_path": "/Users/drorivry/develop/build-influence/src/build_influence/cli.py",
+      "size": 8046,
+      "type": "code",
+      "ai_code_insights": {
+        "purpose": "Implements a CLI for the Build Influence tool, allowing users to analyze code repositories, generate and publish content, configure settings, and view logs.",
+        "key_elements": [
+          "callback",
+          "analyze",
+          "generate",
+          "publish",
+          "configure",
+          "logs",
+          "app (typer.Typer instance)"
+        ],
+        "dependencies": [
+          "import typer",
+          "from loguru import logger",
+          "import os",
+          "from typing_extensions import Annotated",
+          "import json",
+          "from build_influence.utils import setup_logging",
+          "from build_influence.config import config",
+          "from build_influence.analysis import RepositoryAnalyzer"
+        ],
+        "interesting_aspects": [
+          "uses Typer for CLI with multiple subcommands",
+          "early logging setup before any CLI logic",
+          "custom type annotations for CLI arguments/options using Annotated",
+          "dynamic printing of AI analysis insights based on result structure",
+          "basic log tailing and following within a CLI command",
+          "error handling with typer.Exit and structured logging"
+        ]
+      }
+    },
+    {
+      "path": "src/build_influence/analysis/analyzer.py",
+      "absolute_path": "/Users/drorivry/develop/build-influence/src/build_influence/analysis/analyzer.py",
+      "size": 21840,
+      "type": "code",
+      "ai_code_insights": {
+        "purpose": "Analyzes a local code repository to extract metadata, file structure, and uses an AI model (via LiteLLM) to generate structured insights about code and documentation files, including purpose, key elements, dependencies, and interesting aspects.",
+        "key_elements": [
+          "RepositoryAnalyzer",
+          "_is_excluded",
+          "analyze",
+          "_extract_metadata",
+          "_build_file_tree",
+          "_categorize_file",
+          "_analyze_file_content_with_ai",
+          "_analyze_code_file_with_ai",
+          "_analyze_doc_file_with_ai"
+        ],
+        "dependencies": [
+          "subprocess",
+          "pathlib",
+          "typing",
+          "litellm",
+          "json",
+          "tqdm",
+          "loguru",
+          "build_influence.config",
+          "build_influence.utils"
+        ],
+        "interesting_aspects": [
+          "Integrates AI (LiteLLM) to analyze code and documentation files and extract structured JSON insights.",
+          "Dynamically constructs prompts for AI to ensure structured JSON output.",
+          "Handles file exclusion, size limits, and file type categorization for targeted analysis.",
+          "Uses tqdm for progress indication during analysis.",
+          "Extracts git metadata for repositories.",
+          "Provides robust error handling for AI and file operations."
+        ]
+      }
+    },
+    {
+      "path": "src/build_influence/analysis/__init__.py",
+      "absolute_path": "/Users/drorivry/develop/build-influence/src/build_influence/analysis/__init__.py",
+      "size": 104,
+      "type": "code",
+      "ai_code_insights": {
+        "purpose": "Defines the public API for the repository analysis module by exposing RepositoryAnalyzer.",
+        "key_elements": [
+          "RepositoryAnalyzer"
+        ],
+        "dependencies": [
+          "from .analyzer import RepositoryAnalyzer"
+        ],
+        "interesting_aspects": []
+      }
+    },
+    {
+      "path": "src/build_influence/publication/__init__.py",
+      "absolute_path": "/Users/drorivry/develop/build-influence/src/build_influence/publication/__init__.py",
+      "size": 21,
+      "type": "code",
+      "ai_code_insights": {
+        "purpose": "Initializes the publication module. No functionality implemented.",
+        "key_elements": [],
+        "dependencies": [],
+        "interesting_aspects": []
+      }
+    },
+    {
+      "path": "src/build_influence/config/__init__.py",
+      "absolute_path": "/Users/drorivry/develop/build-influence/src/build_influence/config/__init__.py",
+      "size": 65,
+      "type": "code",
+      "ai_code_insights": {
+        "purpose": "Initializes the config module and exposes the config object from the loader submodule.",
+        "key_elements": [
+          "config"
+        ],
+        "dependencies": [
+          "from .loader import config"
+        ],
+        "interesting_aspects": []
+      }
+    },
+    {
+      "path": "src/build_influence/config/loader.py",
+      "absolute_path": "/Users/drorivry/develop/build-influence/src/build_influence/config/loader.py",
+      "size": 4155,
+      "type": "code",
+      "ai_code_insights": {
+        "purpose": "Loads application configuration from a YAML file and environment variables, merges them, and exposes the result as a dot-accessible object for use throughout the app.",
+        "key_elements": [
+          "load_config"
+        ],
+        "dependencies": [
+          "import os",
+          "import yaml",
+          "from dotenv import load_dotenv",
+          "from loguru import logger",
+          "from box import Box",
+          "from build_influence.utils.logging import setup_logging"
+        ],
+        "interesting_aspects": [
+          "uses environment variable overrides for config values",
+          "uses Box to allow dot notation access to config",
+          "supports default values and missing config gracefully",
+          "logs config loading and warns about missing API keys"
+        ]
+      }
+    },
+    {
+      "path": "src/build_influence/utils/logging.py",
+      "absolute_path": "/Users/drorivry/develop/build-influence/src/build_influence/utils/logging.py",
+      "size": 1876,
+      "type": "code",
+      "ai_code_insights": {
+        "purpose": "Configures and initializes logging for an application using the Loguru library, supporting both console and file logging with rotation and retention.",
+        "key_elements": [
+          "setup_logging"
+        ],
+        "dependencies": [
+          "import sys",
+          "import os",
+          "from loguru import logger"
+        ],
+        "interesting_aspects": [
+          "uses Loguru for enhanced logging features",
+          "supports asynchronous logging to file",
+          "configurable via environment variables",
+          "auto-creates log directory if needed",
+          "provides detailed error tracebacks and diagnostics"
+        ]
+      }
+    },
+    {
+      "path": "src/build_influence/utils/__init__.py",
+      "absolute_path": "/Users/drorivry/develop/build-influence/src/build_influence/utils/__init__.py",
+      "size": 83,
+      "type": "code",
+      "ai_code_insights": {
+        "purpose": "Provides logging setup utilities and re-exports setup_logging for external use.",
+        "key_elements": [
+          "setup_logging"
+        ],
+        "dependencies": [
+          "from .logging import setup_logging"
+        ],
+        "interesting_aspects": [
+          "re-exports imported functions via __all__"
+        ]
+      }
+    },
+    {
+      "path": "src/build_influence/generation/__init__.py",
+      "absolute_path": "/Users/drorivry/develop/build-influence/src/build_influence/generation/__init__.py",
+      "size": 28,
+      "type": "code",
+      "ai_code_insights": {
+        "purpose": "Defines the Content Generation module, but contains no code.",
+        "key_elements": [],
+        "dependencies": [],
+        "interesting_aspects": []
+      }
+    }
+  ],
+  "files_analyzed_count": 20
+}

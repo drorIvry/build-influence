@@ -59,7 +59,8 @@ def load_config(config_path: str = DEFAULT_CONFIG_PATH) -> Box:
     llm_conf["temperature"] = float(
         os.environ.get("LLM_TEMPERATURE", llm_conf.get("temperature", 0.7))
     )
-    llm_conf["api_key"] = os.environ.get("ANTHROPIC_API_KEY")  # Example
+
+    # llm_conf["api_key"] = os.environ.get("ANTHROPIC_API_KEY")  # Example
 
     # Analysis
     analysis_conf = config_data["analysis"]
