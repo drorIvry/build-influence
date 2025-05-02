@@ -175,6 +175,7 @@ class Interviewer:
             title="Interview Summary",
             show_header=True,
             header_style="bold magenta",
+            show_lines=True,  # Add row separators
         )
         table.add_column("Question", style="dim", width=40)
         table.add_column("Your Answer", style="cyan")
@@ -315,12 +316,24 @@ class Interviewer:
 
         self._display_summary()  # Show the summary table
 
-        log_msg = (
-            f"Interview complete. Collected "
-            f"{len(self.conversation_history)} Q/A pairs."
+        # Ask for confirmation before returning results
+        confirm_save = Confirm.ask(
+            Text("\nDoes this summary look correct? Save results?", style="bold green"),
+            default=True,
         )
-        logger.info(log_msg)
-        return self.conversation_history
+
+        if confirm_save:
+            log_msg = (
+                f"Interview complete and confirmed. Collected "
+                f"{len(self.conversation_history)} Q/A pairs."
+            )
+            logger.info(log_msg)
+            self.console.print("[green]Interview results saved.[/green]")
+            return self.conversation_history
+        else:
+            logger.info("User rejected the interview summary. Results discarded.")
+            self.console.print("[yellow]Interview results discarded.[/yellow]")
+            return []
 
 
 # Example Usage (for testing) - Keep this as is for local testing
