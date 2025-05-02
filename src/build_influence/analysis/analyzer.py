@@ -8,6 +8,7 @@ from tqdm import tqdm
 from loguru import logger
 
 from build_influence.config import config
+from build_influence.analysis.feature_identifier import FeatureIdentifier
 
 # Configure LiteLLM logging based on our main log level
 # litellm.set_verbose(config.logging.level == "DEBUG")
@@ -56,56 +57,41 @@ class RepositoryAnalyzer:
         return False
 
     def analyze(self) -> Dict[str, Any]:
-        """Perform the full analysis of the repository."""
+        """Perform the full analysis including high-level feature ID."""
         logger.info(f"Starting analysis for {self.repo_name}...")
         self.files_analyzed_count = 0
 
         metadata = self._extract_metadata()
         file_tree = self._build_file_tree()
 
-        # --- AI Analysis Step (Code & Docs) ---
+        # --- AI File Analysis Step (Code & Docs) ---
         max_files = self.max_files_to_analyze
-        # Determine number of files *actually* needing AI analysis up to the limit
         files_to_process = [
             f for f in file_tree if f["type"] in ("code", "documentation")
         ][:max_files]
         num_files_for_ai = len(files_to_process)
+        logger.info(f"AI file analysis: {num_files_for_ai} files ")
+        logger.info(f"(limit: {max_files}).")
 
-        logger.info(
-            f"Starting AI analysis: {num_files_for_ai} code/doc files (limit: {max_files})."
-        )
-
-        # Create a mapping for quick lookup by absolute path
         file_info_map = {info["absolute_path"]: info for info in file_tree}
-
-        # Wrap the list of files to process with tqdm
+        progress_desc = "AI File Analysis"
         for file_to_analyze in tqdm(
-            files_to_process,
-            desc="AI Analyzing Files",
-            total=num_files_for_ai,
-            unit="file",
+            files_to_process, desc=progress_desc, total=num_files_for_ai, unit="file"
         ):
-
-            # Get the full info dict using the absolute path
             abs_path_str = file_to_analyze["absolute_path"]
             file_info = file_info_map.get(abs_path_str)
             if not file_info:
-                logger.warning(
-                    f"Could not find file info for {abs_path_str} during AI loop."
-                )
-                continue  # Should not happen if files_to_process is derived correctly
-
-            # Double check limit just in case
+                logger.warning(f"Info missing for {abs_path_str} ")
+                logger.warning("in AI loop.")
+                continue
             if self.files_analyzed_count >= max_files:
                 break
 
             file_type = file_info["type"]
             abs_path = Path(abs_path_str)
             file_rel_path = file_info["path"]
-
             analysis_func = None
             result_key = None
-
             if file_type == "code":
                 analysis_func = self._analyze_code_file_with_ai
                 result_key = "ai_code_insights"
@@ -115,29 +101,39 @@ class RepositoryAnalyzer:
 
             if analysis_func and result_key:
                 try:
-                    # logger.debug(f"AI analyzing ({file_type}): {file_rel_path}")
                     insights = analysis_func(abs_path)
-                    # Update the original dict in file_tree via the map reference
                     file_info[result_key] = insights
                     self.files_analyzed_count += 1
                 except Exception as e:
-                    logger.error(f"AI analysis failed for {file_rel_path}: {e}")
-                    # Update the original dict in file_tree via the map reference
+                    logger.error(f"AI analysis failed for {file_rel_path}:")
+                    logger.error(f"{e}")
                     file_info[result_key] = {"error": str(e)}
         # -----------------------------------------
+        logger.info(f"AI file analysis complete. ")
+        logger.info(f"Analyzed {self.files_analyzed_count} files.")
 
-        analysis_result = {
+        # --- High-Level Feature Identification Step ---
+        interim_result = {
             "repo_name": self.repo_name,
             "repo_path": str(self.repo_path),
             "metadata": metadata,
-            "file_tree": file_tree,  # file_tree now contains the insights
+            "file_tree": file_tree,
             "files_analyzed_count": self.files_analyzed_count,
         }
+        logger.info("Starting high-level feature identification...")
+        feature_identifier = FeatureIdentifier()
+        high_level_features = feature_identifier.identify_features(interim_result)
+        logger.info("Completed high-level feature identification.")
+        # --------------------------------------------
 
-        logger.info(
-            f"Analysis complete. Analyzed {self.files_analyzed_count} files with AI."
-        )
-        return analysis_result
+        # --- Final Result ---
+        final_analysis_result = {
+            **interim_result,
+            "high_level_features": high_level_features,
+        }
+
+        logger.info(f"Analysis complete for {self.repo_name}.")
+        return final_analysis_result
 
     def _extract_metadata(self) -> Dict[str, Any]:
         """Extract basic metadata (e.g., git info)."""

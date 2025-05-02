@@ -16,18 +16,19 @@
 3. Add documentation and README parsing
 4. Develop technical feature identification
 
-### Phase 3: Content Generation
-
-1. Build content generation foundation
-2. Implement platform-specific content adaptation
-3. Create content type templates
-4. Add AI enhancement capabilities
-
-### Phase 4: User Interaction
+### Phase 3: User Interaction
 
 1. Implement "interview mode"
 2. Create content review interface
 3. Build approval workflow
+
+
+### Phase 4: Content Generation
+
+1. Build content generation foundation
+2. Implement platform-specific content adaptation
+3. Use AI to create the content
+4. Add AI enhancement capabilities
 
 ### Phase 5: Integration and Publication
 
