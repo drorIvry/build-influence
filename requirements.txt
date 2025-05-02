@@ -7,4 +7,5 @@ pyyaml
 python-dotenv
 python-box
 tqdm
+rich
  

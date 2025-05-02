@@ -2,7 +2,15 @@ import json
 from typing import Dict, Any, List, Tuple
 import litellm
 from loguru import logger
-import typer
+import os
+import time
+
+# Rich imports for enhanced CLI
+from rich.console import Console
+from rich.panel import Panel
+from rich.prompt import Prompt, Confirm
+from rich.table import Table
+from rich.text import Text
 
 from build_influence.config import config
 
@@ -32,11 +40,17 @@ class Interviewer:
         self.features = high_level_features.get("identified_features", [])
         self.audience = high_level_features.get("target_audience", "developers")
         self.selling_points = high_level_features.get("selling_points", [])
+        self.console = Console()  # Rich console instance
+
+    def _clear_screen(self):
+        """Clears the terminal screen."""
+        # Simple cross-platform screen clearing
+        os.system("cls" if os.name == "nt" else "clear")
+        time.sleep(0.1)  # Small delay to prevent visual glitches
 
     def _call_llm(self, prompt: str, max_tokens: int = 300) -> str | None:
         """Helper method to call the LLM and handle basic errors."""
-        logger.debug("Sending prompt to LLM:")
-        logger.debug(prompt)
+        logger.debug("Sending prompt to LLM:\n" + prompt)
         try:
             model_string = (
                 f"{self.llm_provider}/{self.llm_model}"
@@ -50,14 +64,20 @@ class Interviewer:
                 temperature=0.6,
             )
             content = response.choices[0].message.content.strip()
-            logger.debug("Received response from LLM:")
-            logger.debug(content)
+            logger.debug(f"Received response from LLM:\n{content}")
             return content
         except litellm.exceptions.APIError as e:
             logger.error(f"LiteLLM API Error during interview: {e}")
+            self.console.print(
+                f"[bold red]Error communicating with LLM: {e}[/bold red]"
+            )
             return None
         except Exception:
             logger.exception("Unexpected error calling LiteLLM in interview.")
+            self.console.print(
+                "[bold red]An unexpected error occurred "
+                "while contacting the LLM.[/bold red]"
+            )
             return None
 
     def _build_initial_prompt(self) -> str:
@@ -134,6 +154,7 @@ class Interviewer:
         questions = [q.strip() for q in llm_content.split("\n") if q.strip()]
         cleaned_questions = []
         for q in questions:
+            # Basic cleaning - remove potential LLM artifacts like Q:/A: prefixes or list markers
             if q.startswith("Q:") or q.startswith("A:"):
                 continue
             while q and not q[0].isalnum():
@@ -142,14 +163,44 @@ class Interviewer:
                 cleaned_questions.append(q)
         return cleaned_questions
 
-    def conduct_interview(self) -> List[Tuple[str, str]]:
-        """Conducts the interactive interview via the CLI using Typer."""
-        logger.info(f"Starting interview for {self.repo_name}...")
-        typer.secho(
-            f"\n--- Starting Interview for {self.repo_name} ---", fg=typer.colors.CYAN
+    def _display_summary(self):
+        """Displays a summary of the interview Q&A in a table."""
+        if not self.conversation_history:
+            self.console.print(
+                "[yellow]No questions were answered in the interview.[/yellow]"
+            )
+            return
+
+        table = Table(
+            title="Interview Summary",
+            show_header=True,
+            header_style="bold magenta",
         )
-        typer.echo("I'll ask questions to understand the project better.")
-        typer.echo("Type answers freely. To finish, type 'done', 'exit', " "or 'quit'.")
+        table.add_column("Question", style="dim", width=40)
+        table.add_column("Your Answer", style="cyan")
+
+        for question, answer in self.conversation_history:
+            table.add_row(question, answer)
+
+        self.console.print(table)
+
+    def conduct_interview(self) -> List[Tuple[str, str]]:
+        """Conducts the interactive interview via the CLI using Rich."""
+        logger.info(f"Starting interview for {self.repo_name}...")
+        self._clear_screen()
+        self.console.print(
+            Panel(
+                Text(f"Starting Interview for {self.repo_name}", style="bold cyan"),
+                title="Build Influence Interview",
+                subtitle="Let's gather some context!",
+                expand=False,
+            )
+        )
+        self.console.print("I'll ask some questions to understand the project better.")
+        self.console.print(
+            "[dim]Type your answers freely. To finish early, "
+            "type 'done', 'exit', or 'quit'.[/dim]"
+        )
 
         initial_prompt = self._build_initial_prompt()
         initial_response = self._call_llm(initial_prompt, max_tokens=150)
@@ -159,42 +210,71 @@ class Interviewer:
             logger.warning("LLM failed initial questions. Using fallbacks.")
             questions_to_ask = [
                 f"What was the main motivation for starting {self.repo_name}?",
-                "What primary problem did you aim to solve?",
+                "What primary problem did you aim to solve with it?",
             ]
 
         question_count = 0
         while question_count < MAX_INTERVIEW_QUESTIONS and questions_to_ask:
+            self._clear_screen()  # Clear screen before each question
             current_question = questions_to_ask.pop(0)
+            question_number_text = Text(
+                f" Question {question_count + 1}/{MAX_INTERVIEW_QUESTIONS} ",
+                style="bold white on blue",
+            )
 
-            prompt_text = (
-                f"\n({question_count + 1}/{MAX_INTERVIEW_QUESTIONS}) "
-                f"{current_question}"
-            )
-            answer = typer.prompt(
-                prompt_text,
-                default="",
-                show_default=False,
-            )
+            try:
+                # Use Rich Prompt for input
+                # 1. Print the panel containing the question first
+                question_panel = Panel(
+                    Text(current_question, style="bold yellow"),
+                    title=question_number_text,
+                    border_style="blue",
+                    padding=(1, 2),
+                )
+                self.console.print(question_panel)
+                # 2. Ask for input using a simple prompt string
+                answer = Prompt.ask("> ")
+
+            except KeyboardInterrupt:
+                self.console.print(
+                    "\n[bold yellow]Interview interrupted by user.[/bold yellow]"
+                )
+                break  # Exit the loop gracefully
 
             answer_lower_stripped = answer.lower().strip()
             if answer_lower_stripped in ["done", "exit", "quit"]:
-                confirm = True
+                confirm_exit = True
                 if question_count < MIN_INTERVIEW_QUESTIONS:
-                    confirm = typer.confirm(
-                        "Exit interview early?", default=False, abort=False
+                    # Use Rich Confirm
+                    confirm_exit = Confirm.ask(
+                        Text(
+                            "Exit interview early? " "The insights might be limited.",
+                            style="yellow",
+                        ),
+                        default=False,
                     )
-                if confirm:
-                    logger.info("User ended the interview.")
-                    typer.secho(
-                        "\n--- Interview Finished Early ---", fg=typer.colors.YELLOW
+                if confirm_exit:
+                    logger.info("User ended the interview early.")
+                    self.console.print(
+                        Panel(
+                            "Interview Finished Early",
+                            style="bold yellow",
+                            expand=False,
+                        )
                     )
                     break
                 else:
+                    # Re-add the question and continue the loop
                     questions_to_ask.insert(0, current_question)
                     continue
             elif not answer.strip():
-                typer.echo("Please provide an answer or type an exit command.")
-                questions_to_ask.insert(0, current_question)
+                # Use Rich print for feedback
+                self.console.print(
+                    "[yellow]Please provide an answer or "
+                    "type an exit command.[/yellow]"
+                )
+                time.sleep(1.5)  # Give user time to read
+                questions_to_ask.insert(0, current_question)  # Re-ask
                 continue
 
             self.conversation_history.append((current_question, answer))
@@ -206,17 +286,34 @@ class Interviewer:
                 followup_response = self._call_llm(followup_prompt, max_tokens=150)
                 new_questions = self._parse_questions(followup_response)
                 if new_questions:
-                    questions_to_ask = new_questions + questions_to_ask
+                    questions_to_ask = new_questions  # Replace remaining questions
                 else:
                     logger.warning("LLM failed to provide follow-up question.")
+                    # Optionally inform the user if needed, or just let it finish naturally
+                    # self.console.print(
+                    #    "[dim]Could not generate a follow-up question.[/dim]"
+                    # )
 
-        finish_color = typer.colors.GREEN
+        # --- Interview Finished ---
+        self._clear_screen()
+        finish_message = "Interview Finished"
+        finish_style = "bold green"
         if question_count >= MAX_INTERVIEW_QUESTIONS:
-            typer.secho("\nReached question limit.", fg=typer.colors.YELLOW)
-            typer.secho("--- Interview Finished ---", fg=finish_color)
-        # Check conditions separately for clarity
-        elif not questions_to_ask and question_count >= MIN_INTERVIEW_QUESTIONS:
-            typer.secho("\n--- Interview Finished ---", fg=finish_color)
+            finish_message = f"Reached Question Limit ({MAX_INTERVIEW_QUESTIONS})"
+            finish_style = "bold yellow"
+        elif not self.conversation_history and question_count == 0:
+            finish_message = "Interview Aborted"
+            finish_style = "bold red"
+
+        self.console.print(
+            Panel(
+                finish_message,
+                style=finish_style,
+                expand=False,
+            )
+        )
+
+        self._display_summary()  # Show the summary table
 
         log_msg = (
             f"Interview complete. Collected "
@@ -226,11 +323,22 @@ class Interviewer:
         return self.conversation_history
 
 
-# Example Usage (for testing)
+# Example Usage (for testing) - Keep this as is for local testing
 if __name__ == "__main__":
     from build_influence.utils import setup_logging
 
-    setup_logging()
+    # Setup basic console logging if not already configured by the app
+    # This ensures Rich output works even when running the script directly
+    try:
+        logger.info("Setting up basic logging for direct script execution.")
+        # Assuming setup_logging configures root logger appropriately
+        setup_logging()
+    except Exception as e:
+        print(f"Failed basic logging setup: {e}")  # Fallback print
+
+    # Use a console specifically for testing if needed
+    test_console = Console()
+    test_console.print("[bold magenta]--- Running Interviewer Test ---[/bold magenta]")
 
     analysis_file = "analysis_results.json"
     analysis_data = {}
@@ -240,28 +348,38 @@ if __name__ == "__main__":
             logger.info(f"Loaded analysis results from {analysis_file}")
     except FileNotFoundError:
         logger.error(f"{analysis_file} not found. Using placeholder data.")
+        test_console.print(
+            f"[yellow]Warning: {analysis_file} not found. "
+            "Using placeholder data.[/yellow]"
+        )
     except json.JSONDecodeError:
         err_msg = f"Error decoding JSON: {analysis_file}. Using placeholder."
         logger.error(err_msg)
+        test_console.print(f"[red]Error: {err_msg}[/red]")
 
     if not analysis_data:
         logger.warning("Using placeholder analysis data for interview test.")
         analysis_data = {
             "repo_name": "Placeholder Project",
             "high_level_features": {
-                "identified_features": [
-                    "CLI Tool",
-                    "Data Processing",
-                    "API Integration",
-                ],
-                "target_audience": "Data Scientists",
-                "selling_points": ["Easy to configure", "Fast processing"],
+                "identified_features": ["Feature A", "Feature B"],
+                "target_audience": "Test Users",
+                "selling_points": ["Point 1", "Point 2"],
             },
+            # Add other necessary structure if your class relies on it
         }
 
-    typer.echo("Direct execution: Skipping interactive interview.")
-    typer.echo("Run via the CLI 'interview' command for interactivity.")
     interviewer = Interviewer(analysis_data)
-    initial_prompt = interviewer._build_initial_prompt()
-    logger.info("Generated Initial Prompt (for testing):")
-    logger.info(initial_prompt)
+    try:
+        interview_results = interviewer.conduct_interview()
+        test_console.print(
+            "\n[bold green]--- Interview Test Completed ---[/bold green]"
+        )
+        # Optionally print results if needed for debugging
+        # test_console.print("Collected Results:")
+        # test_console.print(interview_results)
+    except Exception as e:
+        logger.exception("Error during interview test execution.")
+        test_console.print(
+            f"[bold red]An error occurred during the " f"interview test: {e}[/bold red]"
+        )

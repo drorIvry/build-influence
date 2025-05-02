@@ -1,30 +1,30 @@
 [
   {
-    "question": "What inspired you to create an automated solution for technical content generation and publishing from code repositories, and what specific challenges were you aiming to address for developers and maintainers?",
-    "answer": "I;m not a verbose persone, I'm not outspoken on social media but still I have a lot of value to share with the stuff I build, My passion is building shit, not talking about it."
+    "question": "What inspired you to create an automated solution for technical content generation and sharing from code repositories, and what core challenges were you aiming to address for developers?",
+    "answer": "testtest"
   },
   {
-    "question": "In an ideal scenario, how do you envision this project transforming the way developers promote their work and engage with technical communities online?",
-    "answer": "I build it to help me spread the word out"
+    "question": "How do you envision this project transforming the way developers and maintainers promote their work and build their personal or project brands?",
+    "answer": "test"
   },
   {
-    "question": "What was the biggest challenge you faced in building a tool to \"spread the word out\" automatically, and did anything about the process surprise you?",
-    "answer": "getting the tone and messaging right"
+    "question": "Is there anything else interesting or challenging about this project you'd like to share?",
+    "answer": "test"
   },
   {
-    "question": "How did you approach refining the tone and messaging so that the AI-generated content felt authentic to your voice and project, and were there any unexpected strategies or insights that helped along the way?",
-    "answer": "a lot of trial, error and prompt engieeniring "
+    "question": "What's one piece of advice you would give to someone looking to automate technical content generation and promotion for their own projects?",
+    "answer": "test"
   },
   {
-    "question": "Were there any particular moments during your trial-and-error process with prompt engineering that changed how you thought about using AI for authentic technical storytelling?",
-    "answer": "no"
+    "question": "What was the most unexpected challenge you encountered while building an automated content generation workflow, and how did you overcome it?",
+    "answer": "test"
   },
   {
-    "question": "Is there anything else interesting or particularly challenging about building build-influence that you haven't mentioned yet?",
-    "answer": "MCP is a life saver"
+    "question": "Looking back, is there a key lesson you learned from overcoming that unexpected challenge that would shape how you approach similar automation projects in the future?",
+    "answer": "test"
   },
   {
-    "question": "I'm curious\u2014how did you come across MCP, and what made it such a game changer for you while building build-influence?",
-    "answer": "it made the whole process a lot easier"
+    "question": "How has your approach to automation changed after overcoming that challenge, and are there any specific strategies you now prioritize when starting new projects?",
+    "answer": "test"
   }
 ]
