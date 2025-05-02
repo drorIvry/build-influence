@@ -1,0 +1,30 @@
+[
+  {
+    "question": "What inspired you to create an automated solution for technical content generation and publishing from code repositories, and what specific challenges were you aiming to address for developers and maintainers?",
+    "answer": "I;m not a verbose persone, I'm not outspoken on social media but still I have a lot of value to share with the stuff I build, My passion is building shit, not talking about it."
+  },
+  {
+    "question": "In an ideal scenario, how do you envision this project transforming the way developers promote their work and engage with technical communities online?",
+    "answer": "I build it to help me spread the word out"
+  },
+  {
+    "question": "What was the biggest challenge you faced in building a tool to \"spread the word out\" automatically, and did anything about the process surprise you?",
+    "answer": "getting the tone and messaging right"
+  },
+  {
+    "question": "How did you approach refining the tone and messaging so that the AI-generated content felt authentic to your voice and project, and were there any unexpected strategies or insights that helped along the way?",
+    "answer": "a lot of trial, error and prompt engieeniring "
+  },
+  {
+    "question": "Were there any particular moments during your trial-and-error process with prompt engineering that changed how you thought about using AI for authentic technical storytelling?",
+    "answer": "no"
+  },
+  {
+    "question": "Is there anything else interesting or particularly challenging about building build-influence that you haven't mentioned yet?",
+    "answer": "MCP is a life saver"
+  },
+  {
+    "question": "I'm curious\u2014how did you come across MCP, and what made it such a game changer for you while building build-influence?",
+    "answer": "it made the whole process a lot easier"
+  }
+]

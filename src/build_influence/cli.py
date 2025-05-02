@@ -1,195 +1,216 @@
 import typer
 from loguru import logger
 import os
-from typing_extensions import Annotated
 import json
+from pathlib import Path
+import time
 
 from build_influence.utils import setup_logging
-
-# Import config to ensure it's loaded early
 from build_influence.config import config
 from build_influence.analysis import RepositoryAnalyzer
+from build_influence.interview import Interviewer
 
-app = typer.Typer()
+app = typer.Typer(
+    name="build-influence",
+    help="Analyzes code repositories and generates content.",
+)
+
+ANALYSIS_FILENAME = "analysis_results.json"
+INTERVIEW_LOG_FILENAME = "interview_log.json"
 
 
 @app.callback()
-def callback():
-    """Build Influence: Analyze code & docs using AI, generate content."""
-    # Setup logging as early as possible.
-    # The setup_logging function reads config/env vars itself.
+def callback(
+    ctx: typer.Context,
+    config_file: Path = typer.Option(
+        "config.yaml",
+        help="Path to the configuration file.",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        resolve_path=True,
+    ),
+):
+    """Build Influence CLI."""
     setup_logging()
-    logger.debug("CLI callback executed. Logging setup.")
-    logger.debug(f"Config loaded. LLM model: {config.llm.model}")
-
-
-# Type definitions for arguments/options for clarity and line length
-RepoPath = Annotated[str, typer.Argument(help="Path to the local repository.")]
-AnalysisFile = Annotated[
-    str | None, typer.Option(help="Path to pre-computed analysis data.")
-]
-ContentID = Annotated[str, typer.Argument(help="ID or path of content to publish.")]
-LogLines = Annotated[int, typer.Option("-n", "--lines", help="Num log lines.")]
-LogFollow = Annotated[bool, typer.Option("-f", "--follow", help="Follow log output.")]
-OutputJson = Annotated[
-    str | None, typer.Option("--output", "-o", help="Save analysis JSON to path.")
-]
+    logger.info("Build Influence CLI started.")
+    logger.info(f"Using configuration from: {config_file}")
+    ctx.ensure_object(dict)
+    analysis_output = config.get("analysis", {}).get(
+        "output_file",
+        ANALYSIS_FILENAME,
+    )
+    interview_output = config.get("interview", {}).get(
+        "log_file",
+        INTERVIEW_LOG_FILENAME,
+    )
+    ctx.obj["ANALYSIS_FILE"] = Path(analysis_output)
+    ctx.obj["INTERVIEW_LOG_FILE"] = Path(interview_output)
 
 
 @app.command()
-def analyze(repo_path: RepoPath, output_file: OutputJson = None):
-    """Analyze a code repository using AI for code & doc insights."""
-    logger.info(f"Analyzing repository at: {repo_path}")
-    print(f"Analyzing repository: {repo_path}... (AI analysis may take time)")
+def analyze(
+    ctx: typer.Context,
+    repo_path: Path = typer.Argument(
+        ".",
+        help="Path to the local code repository to analyze.",
+        exists=True,
+        file_okay=False,
+        dir_okay=True,
+        readable=True,
+        resolve_path=True,
+    ),
+    force: bool = typer.Option(
+        False, "--force", "-f", help="Force re-analysis even if results file exists."
+    ),
+):
+    """Analyzes a code repository and saves the results."""
+    analysis_file_path: Path = ctx.obj["ANALYSIS_FILE"]
+    logger.info(f"Starting analysis for repository: {repo_path}")
+
+    if analysis_file_path.exists() and not force:
+        typer.secho(
+            f"Analysis file '{analysis_file_path}' exists.", fg=typer.colors.YELLOW
+        )
+        typer.echo("Use --force to overwrite.")
+        logger.warning("Analysis skipped: File exists and --force not used.")
+        return
+
+    # Pass repo_path as string to analyzer if it expects str
+    analyzer = RepositoryAnalyzer(str(repo_path))
+    try:
+        analysis_results = analyzer.analyze()
+        analysis_file_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(analysis_file_path, "w") as f:
+            json.dump(analysis_results, f, indent=2)
+        msg = f"Analysis complete. Saved to '{analysis_file_path}'"
+        typer.secho(msg, fg=typer.colors.GREEN)
+        logger.info(f"Analysis results saved to {analysis_file_path}")
+    except Exception as e:
+        logger.error(f"Analysis failed: {e}")
+        typer.secho(f"Error during analysis: {e}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+
+@app.command()
+def interview(ctx: typer.Context):
+    """Starts an interactive interview based on analysis results."""
+    analysis_file_path: Path = ctx.obj["ANALYSIS_FILE"]
+    interview_log_file: Path = ctx.obj["INTERVIEW_LOG_FILE"]
+
+    if not analysis_file_path.exists():
+        msg = f"Analysis file '{analysis_file_path}' not found."
+        typer.secho(msg, fg=typer.colors.RED)
+        typer.echo("Please run the 'analyze' command first.")
+        logger.error("Interview command failed: Analysis results not found.")
+        raise typer.Exit(code=1)
 
     try:
-        analyzer = RepositoryAnalyzer(repo_path)
-        result = analyzer.analyze()
-
-        print("\n--- Analysis Summary ---")
-        print(f"Repo Name: {result['repo_name']}")
-        print(f"Metadata Type: {result['metadata'].get('type', 'unknown')}")
-        ai_analyzed_count = result.get("files_analyzed_count", 0)
-        tree_count = len(result.get("file_tree", []))
-        print(f"Files in Tree: {tree_count} (Potential)")
-        print(f"AI Files Analyzed: {ai_analyzed_count} (Code/Docs, up to limit)")
-
-        if output_file:
-            logger.info(f"Saving analysis result to: {output_file}")
-            try:
-                with open(output_file, "w") as f:
-                    # Use default=str for potential non-serializable types like Path
-                    json.dump(result, f, indent=2, default=str)
-                print(f"Analysis result saved to {output_file}")
-            except Exception as e:
-                err_msg = f"Failed to save results to {output_file}"
-                logger.error(f"{err_msg}: {e}")
-                print(f"Error: {err_msg}")
-        else:
-            # Optionally print AI insights for first few files if not saving
-            print("\n--- AI Insight Snippets (First 5 Files) ---")
-            files_shown = 0
-            for file_info in result.get("file_tree", []):
-                if files_shown >= 5:
-                    break
-
-                insights = None
-                insight_type = None
-                if file_info.get("ai_code_insights"):
-                    insights = file_info["ai_code_insights"]
-                    insight_type = "Code"
-                elif file_info.get("ai_doc_insights"):
-                    insights = file_info["ai_doc_insights"]
-                    insight_type = "Doc"
-
-                if insights:
-                    rel_path = file_info["path"]
-                    print(f"\n  File: {rel_path} ([{insight_type} Insights])")
-                    if insights.get("error"):
-                        print(f"    Error: {insights['error']}")
-                    else:
-                        # Print common fields or type-specific fields
-                        if insight_type == "Code":
-                            print(f"    Purpose: {insights.get('purpose', 'N/A')}")
-                            elements = insights.get("key_elements", [])
-                            print(f"    Elements: {elements}")
-                        elif insight_type == "Doc":
-                            print(f"    Summary: {insights.get('summary', 'N/A')}")
-                            features = insights.get("features", [])
-                            print(f"    Features: {features}")
-                        else:  # Fallback for unexpected types
-                            print(f"    Insights: {insights}")
-                    files_shown += 1
-
-            if files_shown == 0:
-                print("  (No successful AI insights found/analyzed)")
-            elif len(result.get("file_tree", [])) > files_shown:
-                # Check if there were more files than shown, even if some had no insights
-                print("\n  ...")
-
-        print("\nAnalysis complete.")
-
-    except ValueError as e:
-        # Handle invalid repo path error from analyzer init
-        logger.error(f"Analysis failed: {e}")
-        print(f"Error: {e}")
+        with open(analysis_file_path, "r") as f:
+            analysis_data = json.load(f)
+        logger.info(f"Loaded analysis data from {analysis_file_path}")
+    except json.JSONDecodeError as e:
+        msg = f"Error reading '{analysis_file_path}': Invalid JSON."
+        logger.error(f"Failed to decode JSON from {analysis_file_path}: {e}")
+        typer.secho(msg, fg=typer.colors.RED)
         raise typer.Exit(code=1)
     except Exception as e:
-        logger.exception("An unexpected error occurred during analysis.")
-        print(f"An unexpected error occurred during analysis: {e}")
+        msg = f"Error reading analysis file: {e}"
+        logger.error(f"Failed to read analysis file {analysis_file_path}: {e}")
+        typer.secho(msg, fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    interviewer = Interviewer(analysis_data)
+    try:
+        interview_results = interviewer.conduct_interview()
+
+        if not interview_results:
+            msg = "Interview completed, but no answers were recorded."
+            typer.secho(msg, fg=typer.colors.YELLOW)
+            logger.warning("Interview finished with no recorded answers.")
+            return
+
+        try:
+            interview_log_file.parent.mkdir(parents=True, exist_ok=True)
+            with open(interview_log_file, "w") as f:
+                log_data = [{"question": q, "answer": a} for q, a in interview_results]
+                json.dump(log_data, f, indent=2)
+            msg = f"Interview log saved to '{interview_log_file}'"
+            typer.secho(msg, fg=typer.colors.GREEN)
+            logger.info(f"Interview log saved to {interview_log_file}")
+        except Exception as e:
+            log_err = f"Failed to save log to {interview_log_file}: {e}"
+            logger.error(log_err)
+            typer.secho(f"Error saving interview log: {e}", fg=typer.colors.RED)
+
+    except Exception as e:
+        err_intro = "An error occurred during the interview:"
+        logger.error(f"{err_intro} {e}", exc_info=True)
+        typer.secho(f"{err_intro} {e}", fg=typer.colors.RED)
         raise typer.Exit(code=1)
 
 
 @app.command()
-def generate(analysis_file: AnalysisFile = None):
-    """Generate content based on repository analysis."""
-    if analysis_file:
-        logger.info(f"Generating content from analysis file: {analysis_file}")
-        print(f"Generating content from analysis file: {analysis_file}...")
-        # TODO: Load analysis data from file
-    else:
-        logger.info("Generating content (requires prior analysis)")
-        print("Generating content... (requires prior analysis)")
-        # TODO: Potentially run analysis first or use cached results
-
-    # TODO: Implement content generation logic
-    print("Content generation complete (placeholder).")
+def generate():
+    """Generates content based on analysis. (Not Implemented)"""
+    typer.echo("Content generation logic (Not Implemented).")
+    logger.info("Generate command executed (placeholder).")
 
 
 @app.command()
-def publish(content_id: ContentID):
-    """Publish generated content to specified platforms."""
-    logger.info(f"Publishing content: {content_id}")
-    print(f"Publishing content: {content_id}...")
-    # TODO: Implement publication logic
-    print("Publishing complete (placeholder).")
+def publish():
+    """Publishes content to platforms. (Not Implemented)"""
+    typer.echo("Publication logic (Not Implemented).")
+    logger.info("Publish command executed (placeholder).")
 
 
 @app.command()
 def configure():
-    """Configure settings for Build Influence (interactive or file-based)."""
-    logger.info("Entering configuration mode...")
-    print("Config command (placeholder). This might open an editor or guide.")
-    # TODO: Implement configuration logic
-    config_file_path = config.get("_config_file", "Not loaded from file")
-    print(f"Current config file: {config_file_path}")
-    print(f"Log level: {config.logging.level}")
+    """Configures application settings. (Not Implemented)"""
+    typer.echo("Configuration logic (Not Implemented).")
+    logger.info("Configure command executed (placeholder).")
 
 
 @app.command()
-def logs(lines: LogLines = 20, follow: LogFollow = False):
-    """Show the latest log entries."""
-    log_file = config.logging.file
-    logger.info(f"Showing logs from {log_file}. Lines={lines}, Follow={follow}")
-    print(f"Showing last {lines} lines of {log_file}:")
-    # Basic implementation: tail the log file
+def logs(
+    lines: int = typer.Option(10, "--lines", "-n", help="Number of log lines to show."),
+    follow: bool = typer.Option(False, "--follow", "-f", help="Follow log output."),
+):
+    """Displays the application log file."""
+    try:
+        log_file_str = config.logging.file_path
+        log_file = Path(log_file_str)
+    except AttributeError:
+        typer.secho("Log file path not configured correctly.", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
+    if not log_file.exists():
+        typer.secho(f"Log file not found: {log_file}", fg=typer.colors.RED)
+        raise typer.Exit(code=1)
+
     try:
         if follow:
-            # Note: Simple follow, may not be robust.
-            print(f"Following {log_file}... Press Ctrl+C to stop.")
+            typer.echo(f"Following log: {log_file} (Ctrl+C to exit)")
             with open(log_file, "r") as f:
-                # Move to the end of the file
                 f.seek(0, os.SEEK_END)
                 while True:
                     line = f.readline()
                     if not line:
-                        # No new line, wait briefly
-                        typer.sleep(0.1)
+                        time.sleep(0.1)
                         continue
-                    # Print the new line
-                    print(line.strip())
+                    typer.echo(line.strip())
         else:
-            # Read last N lines (inefficient for huge files)
             with open(log_file, "r") as f:
-                all_lines = f.readlines()
-                for line in all_lines[-lines:]:
-                    print(line.strip())
+                log_lines = f.readlines()
+                for line in log_lines[-lines:]:
+                    typer.echo(line.strip())
     except FileNotFoundError:
-        print(f"Log file not found: {log_file}")
-        logger.error(f"Log file not found: {log_file}")
+        typer.secho(f"Log file not found: {log_file}", fg=typer.colors.RED)
+    except KeyboardInterrupt:
+        typer.echo("\nStopped following log.")
     except Exception as e:
-        print(f"Error reading log file: {e}")
-        logger.exception("Error reading log file")
+        typer.secho(f"Error reading log file: {e}", fg=typer.colors.RED)
 
 
 if __name__ == "__main__":
