@@ -32,6 +32,7 @@ def load_config(config_path: str = DEFAULT_CONFIG_PATH) -> Box:
     config_data.setdefault("generation", {})
     config_data.setdefault("preferences", {})
     config_data.setdefault("publication", {})
+    config_data.setdefault("output_dirs", {})
 
     # --- Environment Variable Overrides ---
     # Logging
