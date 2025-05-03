@@ -19,6 +19,11 @@ from build_influence.generation import (
     TwitterGenerator,
     LinkedinGenerator,
 )
+from build_influence.publication import (
+    get_publisher,
+    PublicationContent,
+    PublishResult,
+)
 
 app = typer.Typer(
     name="build-influence",
@@ -102,6 +107,7 @@ def analyze(
     """Analyzes a code repository and saves the results."""
     # Construct analysis file path using repo name
     safe_repo_name = "".join(c if c.isalnum() else "_" for c in repo_path.name)
+
     analysis_file_path = ctx.obj["ANALYSIS_DIR"] / f"{safe_repo_name}_analysis.json"
     logger.info(f"Starting analysis for repository: {repo_path}")
     logger.info(f"Analysis results will be saved to: {analysis_file_path}")
@@ -138,7 +144,7 @@ def interview(
     ctx: typer.Context,
     repo_name: str = typer.Argument(
         ...,
-        help=("The name of the repository (used for finding " "analysis/log files)."),
+        help=("The name of the repository (used for finding analysis/log files)."),
     ),
 ):
     """Starts an interactive interview based on analysis results."""
@@ -207,19 +213,23 @@ def generate(
     ctx: typer.Context,
     repo_name: str = typer.Argument(
         ...,
-        help=("The name of the repository (used for finding " "analysis/log files)."),
+        help=("The name of the repository (used for finding analysis/log files)."),
     ),
     platform: str | None = typer.Option(
         None,
         "--platform",
         "-p",
-        help="Target platform (e.g., devto, twitter, linkedin, markdown). "
-        "If omitted, generates for all platforms.",
+        help=(
+            "Target platform (e.g., devto, twitter, linkedin, markdown). "
+            "If omitted, generates for all platforms."
+        ),
     ),
     content_type: str | None = typer.Argument(
         None,
-        help="Type of content (e.g., announcement, deepdive). "
-        "If omitted, uses platform default.",
+        help=(
+            "Type of content (e.g., announcement, deepdive). "
+            "If omitted, uses platform default."
+        ),
     ),
 ):
     """
@@ -272,11 +282,11 @@ def generate(
         except json.JSONDecodeError as e:
             logger.warning(
                 f"Could not decode interview log JSON from "
-                f"{interview_log_file}': {e}"
+                f"'{interview_log_file}': {e}"
             )
         except Exception as e:
             logger.warning(
-                f"Could not read interview log file " f"{interview_log_file}': {e}"
+                f"Could not read interview log file " f"'{interview_log_file}': {e}"
             )
 
     # Load README content
@@ -297,7 +307,9 @@ def generate(
         if not readme_found:
             logger.info("No README file found in repository root.")
     else:
-        logger.warning("Original repository path not found in analysis results.")
+        logger.warning(
+            "Original repository path not found in analysis results.",
+        )
     # --- End loading data ---
 
     # Map platform strings to generator classes (Strategy pattern)
@@ -321,9 +333,7 @@ def generate(
     if platform is None:
         # Default to all platforms
         target_platforms = list(generator_strategies.keys())
-        logger.info(
-            f"No platform specified, generating for all: " f"{target_platforms}"
-        )
+        logger.info(f"No platform specified, generating for all: {target_platforms}")
     else:
         selected_platform = platform.lower()
         if selected_platform not in generator_strategies:
@@ -373,7 +383,7 @@ def generate(
             readme_content=readme_content,
         )
         logger.info(
-            f"Using {GeneratorClass.__name__} for platform " f"'{current_platform}'."
+            f"Using {GeneratorClass.__name__} for platform '{current_platform}'."
         )
 
         try:
@@ -457,7 +467,7 @@ def generate(
                             )
                     elif feedback_input.lower() == "revert" and not can_revert:
                         console.print(
-                            "[yellow]Cannot revert: No changes to undo " "yet.[/yellow]"
+                            "[yellow]Cannot revert: No changes to undo yet.[/yellow]"
                         )
                     elif feedback_input:  # User provided feedback
                         console.print("🔄 Refining content based on feedback...")
@@ -565,19 +575,142 @@ def generate(
     # --- End loop --- #
 
     if not generation_successful:
-        console.print(
-            ":warning: [yellow]No content was successfully generated and saved.[/yellow]"
-        )
+        console.print(":warning: [yellow]No content was generated and saved.[/yellow]")
         logger.warning("Generate command finished, but no content was saved.")
         # Optionally raise Exit here if failure is critical
 
 
 @app.command()
-def publish():
-    """Publishes content to platforms. (Not Implemented)"""
-    typer.echo("Publication logic (Not Implemented).")
-    logger.info("Publish command executed (placeholder).")
-    raise typer.Exit(code=1)
+def publish(
+    ctx: typer.Context,
+    content_file: Path = typer.Argument(
+        ...,
+        help="Path to the generated content file to publish.",
+        exists=True,
+        file_okay=True,
+        dir_okay=False,
+        readable=True,
+        resolve_path=True,
+    ),
+    platform: str = typer.Argument(
+        ...,
+        help="Platform to publish to (e.g., devto, twitter, linkedin). "
+        "Must match a configured platform.",
+    ),
+):
+    """Publishes a generated content file to the specified platform."""
+    console = Console()
+    logger.info(f"Attempting to publish '{content_file}' to platform '{platform}'")
+
+    # --- 1. Load Content ---
+    try:
+        with open(content_file, "r") as f:
+            # For now, treat the entire file content as the body.
+            # Future improvements could parse frontmatter for title/tags.
+            body_content = f.read()
+        if not body_content:
+            console.print(
+                f":x: [bold red]Error:[/bold red] Content file "
+                f"'{content_file}' is empty."
+            )
+            logger.error(f"Publish failed: Content file '{content_file}' is empty.")
+            raise typer.Exit(code=1)
+        # Basic content structure - assumes title/tags might be handled differently
+        # or not needed for all platforms (like Twitter). Dev.to requires title.
+        # Let's derive a basic title from filename if needed.
+        content_title = content_file.stem.replace("_", " ").title()
+        publication_content = PublicationContent(body=body_content, title=content_title)
+        logger.debug(f"Loaded content from {content_file}")
+
+    except Exception as e:
+        msg = f"Error reading content file '{content_file}': {e}"
+        console.print(f":x: [bold red]Error:[/bold red] {msg}")
+        logger.error(msg, exc_info=True)
+        raise typer.Exit(code=1)
+
+    # --- 2. Get Publisher ---
+    publisher = get_publisher(platform.lower())
+    if not publisher:
+        msg = (
+            f"No publisher found for platform '{platform}'. Available "
+            f"publishers are configured in publication/__init__.py."
+        )
+        console.print(f":x: [bold red]Error:[/bold red] {msg}")
+        logger.error(msg)
+        raise typer.Exit(code=1)
+    logger.info(f"Using publisher: {publisher}")
+
+    # --- 3. Get Platform Configuration ---
+    platform_key = platform.lower()
+    platform_config = config
+    if not platform_config:
+        # Special check for devto/dev.to alias
+        if platform_key == "dev.to":
+            platform_key = "devto"
+
+    if not platform_config or not isinstance(platform_config, dict):
+        msg = (
+            f"Config for platform '{platform}' not found/invalid "
+            f"in config under 'platforms' key."
+        )
+        console.print(f":x: [bold red]Error:[/bold red] {msg}")
+        logger.error(msg)
+        console.print("Example config structure:")
+        console.print(
+            """
+platforms:
+  devto:
+    api_key: YOUR_KEY
+  twitter:
+    api_key: YOUR_TOKEN
+"""
+        )
+        raise typer.Exit(code=1)
+    logger.debug(f"Loaded configuration for platform '{platform}'.")
+
+    # --- 4. Perform Publication ---
+    publish_message = f"Publishing to [bold cyan]{platform}[/bold cyan]..."
+    result: PublishResult | None = None
+    with console.status(publish_message, spinner="dots"):
+        try:
+            logger.info(f">>>> config: {config.get('platforms', {})}")
+            result = publisher.publish(publication_content, config)
+        except Exception as e:
+            # Catch unexpected errors during the publish call itself
+            msg = f"Unexpected error during publishing: {e}"
+            console.print(f"\n:x: [bold red]Error:[/bold red] {msg}")
+            logger.error(msg, exc_info=True)
+            raise typer.Exit(code=1)
+
+    # --- 5. Display Result ---
+    if result:
+        if result.success:
+            success_msg = f"✅ Successfully published to {platform}!"
+            if result.url:
+                success_msg += f" URL: [link={result.url}]{result.url}[/link]"
+            else:
+                # Show message if no URL, but publication succeeded
+                success_msg += f" {result.message}"
+            console.print(success_msg)
+            pub_log_msg = f"Publication successful for {platform}."
+            if result.url:
+                pub_log_msg += f" URL: {result.url}"
+            logger.success(pub_log_msg)
+        else:
+            error_msg = (
+                f":x: [bold red]Failed to publish to {platform}:[/bold red] "
+                f"{result.message}"
+            )
+            console.print(error_msg)
+            logger.error(f"Publication failed for {platform}. Reason: {result.message}")
+            raise typer.Exit(code=1)  # Exit with error on failure
+    else:
+        # Should not happen if publisher returns correctly, but handle defensively
+        console.print(
+            ":x: [bold red]Error:[/bold red] Publisher did not return a result."
+        )
+        logger.error(f"Publisher for {platform} failed to return a result.")
+        raise typer.Exit(code=1)
 
 
 @app.command()
@@ -600,10 +733,7 @@ def logs(
     """Displays the application log file."""
     log_file_path = Path(os.getenv("LOG_FILE", "logs/build_influence.log"))
     if not log_file_path.exists():
-        typer.secho(
-            f"Log file not found: {log_file_path}",
-            fg=typer.colors.RED,
-        )
+        typer.secho(f"Log file not found: {log_file_path}", fg=typer.colors.RED)
         logger.error(
             f"Log file access failed: {log_file_path} does not exist.",
         )
