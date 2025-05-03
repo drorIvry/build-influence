@@ -24,7 +24,7 @@ We actively welcome your pull requests:
 2.  If you've added code that should be tested, add tests.
 3.  If you've changed APIs, update the documentation.
 4.  Ensure the test suite passes (`pytest tests/`).
-5.  Make sure your code lints (`ruff check src/ tests/`) and is formatted (`ruff format src/ tests/`).
+5.  Make sure your code lints (`flake8 src/ tests/`) and is formatted (`black src/ tests/`).
 6.  Ensure type checks pass (`mypy src/ tests/`).
 7.  Issue that pull request!
 
@@ -45,13 +45,13 @@ We actively welcome your pull requests:
     ```bash
     pip install -r requirements.txt
     # Install development/testing tools if they are not in requirements.txt
-    pip install ruff mypy pytest pytest-cov build twine
+    pip install black flake8 mypy pytest pytest-cov build twine
     ```
 
 ## Coding Standards
 
 - Please follow the [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guide.
-- Use `ruff` for linting and formatting. Our CI pipeline checks this, so please run `ruff format src/ tests/` before committing.
+- Use `flake8` for linting and `black` for formatting. Our CI pipeline checks this, so please run `flake8 src/ tests/` and `black src/ tests/` before committing.
 - Use type hints (`mypy`) for static analysis. Our CI pipeline checks this.
 - Write tests using `pytest` for new functionality.
 
