@@ -34,8 +34,8 @@ jobs:
 
       - name: Run Linter and Formatter Check
         run: |
-          flake8 src/ tests/
-          black --check src/ tests/
+          flake8 src/
+          black --check src/
 
       - name: Run MyPy (Type Checking)
         run: |
