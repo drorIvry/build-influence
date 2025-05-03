@@ -379,8 +379,9 @@ def generate(
         try:
             # Initial Generation
             generation_message = (
-                f"Generating [bold magenta]{current_content_type}[/bold magenta] "
-                f"content for [bold cyan]{current_platform}[/bold cyan]..."
+                f"Generating [bold magenta]{current_content_type}"
+                "[/bold magenta] content "
+                f"for [bold cyan]{current_platform}[/bold cyan]..."
             )
             generated_content = None
             with console.status(generation_message, spinner="dots"):
@@ -393,9 +394,14 @@ def generate(
 
                 current_content = generated_content
                 user_action = None  # Track if user saves or discards
+                previous_content = None  # To store content for revert
+                can_revert = False  # Flag to enable/disable revert option
 
                 # --- Feedback Loop --- #
                 while True:
+                    # Clear screen for cleaner UX
+                    os.system("cls" if os.name == "nt" else "clear")
+
                     console.rule(
                         f"[bold blue]Preview & Refine ({current_platform})[/bold blue]"
                     )
@@ -409,9 +415,15 @@ def generate(
                         console.print(current_content)
                     console.rule()
 
-                    feedback_prompt = "\nType your feedback to refine, 'save' to keep, or 'discard' to abandon: "
+                    prompt_options = (
+                        "Type your feedback to refine, 'save' to keep, or "
+                        "'discard' to abandon."
+                    )
+                    if can_revert:
+                        prompt_options += " Type 'revert' to undo the last change."
+
                     feedback_input = typer.prompt(
-                        feedback_prompt, default="", show_default=False
+                        f"\n{prompt_options}\n> ", default="", show_default=False
                     ).strip()
 
                     if feedback_input.lower() == "save":
@@ -420,17 +432,41 @@ def generate(
                     elif feedback_input.lower() == "discard":
                         user_action = "discard"
                         console.print(
-                            f"[yellow]Discarding content for {current_platform}.[/yellow]"
+                            f"[yellow]Discarding content for "
+                            f"{current_platform}.[/yellow]"
                         )
                         logger.info(
                             f"User discarded content for {current_platform} "
                             f"after feedback loop."
                         )
                         break
+                    elif feedback_input.lower() == "revert" and can_revert:
+                        if previous_content is not None:
+                            console.print("⏪ Reverting to previous version...")
+                            current_content = previous_content
+                            # Clear previous after revert
+                            previous_content = None
+                            # Disable revert until next change
+                            can_revert = False
+                            # Continue loop to show reverted content
+                        else:
+                            # Should not happen if managed correctly
+                            console.print(
+                                "[yellow]Cannot revert: No previous version "
+                                "stored.[/yellow]"
+                            )
+                    elif feedback_input.lower() == "revert" and not can_revert:
+                        console.print(
+                            "[yellow]Cannot revert: No changes to undo " "yet.[/yellow]"
+                        )
                     elif feedback_input:  # User provided feedback
                         console.print("🔄 Refining content based on feedback...")
                         refinement_message = "Applying feedback..."
                         new_content = None
+                        # Store current state before attempting refinement
+                        previous_content = current_content
+                        can_revert = True  # Enable revert after this attempt
+
                         with console.status(refinement_message, spinner="dots"):
                             try:
                                 new_content = generator.regenerate_with_feedback(
@@ -444,22 +480,31 @@ def generate(
                                     exc_info=True,
                                 )
                                 console.print(
-                                    f"[bold red]Error applying feedback:[/bold red] {regen_e}"
+                                    f"[bold red]Error applying feedback:[/bold red] "
+                                    f"{regen_e}"
                                 )
+                                # Revert state because refinement failed
+                                previous_content = None
+                                can_revert = False
                                 # Continue loop with old content
 
                         if new_content:
                             console.print("✅ Refinement applied!")
                             current_content = new_content
+                            # Keep previous_content and can_revert as they are
                         else:
                             console.print(
                                 "[yellow]Could not apply feedback. "
-                                "Please try again or refine your feedback.[/yellow]"
+                                "Previous version kept.[/yellow]"
                             )
+                            # Revert state because refinement returned None
+                            previous_content = None
+                            can_revert = False
                         # Continue the loop to show refined content/ask again
                     else:  # Empty input
                         console.print(
-                            "Please provide feedback, or type 'save' or 'discard'."
+                            "Please provide feedback, or type 'save', 'discard'"
+                            + (" or 'revert'." if can_revert else ".")
                         )
                         # Continue loop
                 # --- End Feedback Loop --- #

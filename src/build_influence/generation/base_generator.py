@@ -53,7 +53,8 @@ class BaseContentGenerator(ABC):
         """
         # Use the composer-specific model, falling back to the general LLM model
         composer_model = config.generation.get("model", config.llm.model)
-        llm_provider = config.llm.get("provider")  # Assuming provider is consistent
+        # Assuming provider is consistent across generation/refinement
+        llm_provider = config.llm.get("provider")
         model_string = (
             f"{llm_provider}/{composer_model}" if llm_provider else composer_model
         )
@@ -110,15 +111,20 @@ class BaseContentGenerator(ABC):
         # context_override: Optional[Dict] = None, # Keep for future use maybe
     ) -> Optional[str]:
         """
-        Constructs a prompt specifically for refining existing content based on feedback.
+        Constructs a prompt specifically for refining existing content based
+        on feedback.
         """
         platform_name = self.__class__.__name__.replace("Generator", "").lower()
         logger.debug(
-            f"Building refinement prompt for platform: {platform_name}, type: {content_type}"
+            f"Building refinement prompt for platform: {platform_name}, "
+            f"type: {content_type}"
         )
 
         prompt_lines = [
-            "You are an expert content writer tasked with refining content based on user feedback.",
+            (
+                "You are an expert content writer tasked with refining "
+                "content based on user feedback."
+            ),
             f"The target platform is: {platform_name}",
             f"The desired content type is: {content_type}",
             "---",
@@ -129,10 +135,23 @@ class BaseContentGenerator(ABC):
             feedback,
             "---",
             "INSTRUCTIONS:",
-            "Rewrite the ORIGINAL CONTENT based *only* on the USER FEEDBACK provided.",
-            f"Ensure the rewritten content remains suitable for the {platform_name} platform and adheres to the requirements of a '{content_type}' piece.",
-            "Maintain the original tone and core message unless the feedback explicitly requests a change.",
-            "Output *only* the rewritten content, without any preamble or explanation.",
+            (
+                "Rewrite the *entire* ORIGINAL CONTENT based *only* on the "
+                "USER FEEDBACK provided."
+            ),
+            (
+                f"Ensure the rewritten content remains suitable for the "
+                f"{platform_name} platform and adheres to the requirements "
+                f"of a '{content_type}' piece."
+            ),
+            (
+                "Maintain the original tone and core message unless the "
+                "feedback explicitly requests a change."
+            ),
+            (
+                "Output *only* the complete rewritten content, without any "
+                "preamble or explanation."
+            ),
         ]
 
         # Consider adding essential context back if simple refinement fails
@@ -171,7 +190,7 @@ class BaseContentGenerator(ABC):
             original_content=original_content,
             feedback=feedback,
             content_type=content_type,
-            # context_override=context_override, # Pass if needed by _build_refinement_prompt
+            # context_override=context_override, # Pass if needed
         )
 
         if not refinement_prompt:
@@ -179,7 +198,8 @@ class BaseContentGenerator(ABC):
             return None
 
         # Use existing LLM call mechanism
-        # TODO: Consider if different parameters (temp, tokens) are needed for refinement
+        # TODO: Consider if different LLM parameters (e.g., lower temp?) are
+        #       better for refinement tasks.
         regenerated_content = self._call_llm(refinement_prompt)
 
         if regenerated_content:
