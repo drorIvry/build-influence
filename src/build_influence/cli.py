@@ -16,7 +16,8 @@ from .commands.interactive_workflow import interactive_workflow
 app = typer.Typer(
     name="build-influence",
     help="Analyzes code repositories and generates content.",
-    no_args_is_help=True,
+    no_args_is_help=False,
+    invoke_without_command=True,
 )
 
 # --- Constants and Mappings --- #
@@ -75,6 +76,13 @@ def callback(
         "CONTENT_OUTPUT_DIR": content_dir,
     }
     logger.debug(f"Context initialized with output directories: {ctx.obj}")
+
+    # If no command is specified, run the interactive workflow
+    if ctx.invoked_subcommand is None:
+        logger.info("No subcommand invoked, starting interactive workflow.")
+        # Manually invoke the interactive workflow command
+        # Pass the context explicitly
+        ctx.invoke(interactive_workflow, ctx=ctx)
 
 
 # --- Register Commands --- #
