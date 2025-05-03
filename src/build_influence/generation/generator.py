@@ -85,13 +85,13 @@ class MarkdownGenerator(BaseContentGenerator):
         **Instructions:**
         1. Synthesize the provided information.
         2. Write a compelling '{content_type}' post in well-formatted Markdown.
-        3. Ensure the tone is appropriate for the target audience and platform 
+        3. Ensure the tone is appropriate for the target audience and platform
            (general technical audience for Markdown).
-        4. If generating a 'deepdive', elaborate on technical aspects. If 
+        4. If generating a 'deepdive', elaborate on technical aspects. If
            'announcement', focus on highlights and purpose.
-        5. Make sure the output is only the Markdown content, without any preamble 
+        5. Make sure the output is only the Markdown content, without any preamble
            or explanation.
-        
+
         **Generated Markdown Post:**
         """.strip()
 

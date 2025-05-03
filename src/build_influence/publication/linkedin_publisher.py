@@ -6,7 +6,7 @@ class LinkedInPublisher(BasePublisher):
 
     platform_name = "LinkedIn"
 
-    async def publish(self, content: PublicationContent, config: dict) -> PublishResult:
+    def publish(self, content: PublicationContent, config: dict) -> PublishResult:
         """Publishes content to LinkedIn. Placeholder implementation."""
         print(f"Publishing to {self.platform_name}:")
         print(f"Title: {content.title}")
