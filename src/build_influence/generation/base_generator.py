@@ -101,6 +101,94 @@ class BaseContentGenerator(ABC):
         """
         pass
 
+    # New method to build refinement prompts
+    def _build_refinement_prompt(
+        self,
+        original_content: str,
+        feedback: str,
+        content_type: str,
+        # context_override: Optional[Dict] = None, # Keep for future use maybe
+    ) -> Optional[str]:
+        """
+        Constructs a prompt specifically for refining existing content based on feedback.
+        """
+        platform_name = self.__class__.__name__.replace("Generator", "").lower()
+        logger.debug(
+            f"Building refinement prompt for platform: {platform_name}, type: {content_type}"
+        )
+
+        prompt_lines = [
+            "You are an expert content writer tasked with refining content based on user feedback.",
+            f"The target platform is: {platform_name}",
+            f"The desired content type is: {content_type}",
+            "---",
+            "ORIGINAL CONTENT:",
+            original_content,
+            "---",
+            "USER FEEDBACK:",
+            feedback,
+            "---",
+            "INSTRUCTIONS:",
+            "Rewrite the ORIGINAL CONTENT based *only* on the USER FEEDBACK provided.",
+            f"Ensure the rewritten content remains suitable for the {platform_name} platform and adheres to the requirements of a '{content_type}' piece.",
+            "Maintain the original tone and core message unless the feedback explicitly requests a change.",
+            "Output *only* the rewritten content, without any preamble or explanation.",
+        ]
+
+        # Consider adding essential context back if simple refinement fails
+        # e.g., prompt_lines.insert(4, f"Project Name: {self.repo_name}")
+        # e.g., prompt_lines.insert(5, "Key Features: ...")
+
+        return "\\n".join(prompt_lines)
+
+    # New method to handle regeneration based on feedback
+    def regenerate_with_feedback(
+        self,
+        original_content: str,
+        feedback: str,
+        content_type: str,
+        context_override: Optional[Dict] = None,  # Keep signature consistent
+    ) -> Optional[str]:
+        """
+        Regenerates content based on user feedback.
+
+        Args:
+            original_content: The previously generated content.
+            feedback: The user's natural language feedback.
+            content_type: The type of content being regenerated.
+            context_override: Optional context (currently unused in refinement).
+
+        Returns:
+            The regenerated content, or None if failed.
+        """
+        logger.info(
+            f"Regenerating content for type '{content_type}' based on feedback."
+        )
+        logger.debug(f"Original content length: {len(original_content)}")
+        logger.debug(f"Feedback: {feedback}")
+
+        refinement_prompt = self._build_refinement_prompt(
+            original_content=original_content,
+            feedback=feedback,
+            content_type=content_type,
+            # context_override=context_override, # Pass if needed by _build_refinement_prompt
+        )
+
+        if not refinement_prompt:
+            logger.error("Failed to build refinement prompt.")
+            return None
+
+        # Use existing LLM call mechanism
+        # TODO: Consider if different parameters (temp, tokens) are needed for refinement
+        regenerated_content = self._call_llm(refinement_prompt)
+
+        if regenerated_content:
+            logger.info("Successfully regenerated content based on feedback.")
+        else:
+            logger.error("LLM call failed during content regeneration.")
+
+        return regenerated_content
+
     @abstractmethod
     def generate(
         self,

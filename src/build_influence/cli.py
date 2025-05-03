@@ -138,7 +138,7 @@ def interview(
     ctx: typer.Context,
     repo_name: str = typer.Argument(
         ...,
-        help="The name of the repository (used for finding analysis/log files).",
+        help=("The name of the repository (used for finding " "analysis/log files)."),
     ),
 ):
     """Starts an interactive interview based on analysis results."""
@@ -206,7 +206,8 @@ def interview(
 def generate(
     ctx: typer.Context,
     repo_name: str = typer.Argument(
-        ..., help="The name of the repository to generate content for."
+        ...,
+        help=("The name of the repository (used for finding " "analysis/log files)."),
     ),
     platform: str | None = typer.Option(
         None,
@@ -320,7 +321,9 @@ def generate(
     if platform is None:
         # Default to all platforms
         target_platforms = list(generator_strategies.keys())
-        logger.info(f"No platform specified, generating for all: {target_platforms}")
+        logger.info(
+            f"No platform specified, generating for all: " f"{target_platforms}"
+        )
     else:
         selected_platform = platform.lower()
         if selected_platform not in generator_strategies:
@@ -344,17 +347,22 @@ def generate(
         if not current_content_type:
             current_content_type = default_content_types.get(current_platform)
             if not current_content_type:
-                msg = f"No default content type defined for platform '{current_platform}'. Skipping."
+                msg = (
+                    f"No default content type defined for platform "
+                    f"'{current_platform}'. Skipping."
+                )
                 console.print(f":yellow_circle: [yellow]Warning:[/yellow] {msg}")
                 logger.warning(msg)
                 continue  # Skip to next platform
             else:
                 logger.info(
-                    f"Using default content type '{current_content_type}' for {current_platform}"
+                    f"Using default content type '{current_content_type}' "
+                    f"for {current_platform}"
                 )
         else:
             logger.info(
-                f"Using specified content type '{current_content_type}' for {current_platform}"
+                f"Using specified content type '{current_content_type}' "
+                f"for {current_platform}"
             )
 
         # Select the appropriate generator strategy
@@ -369,9 +377,10 @@ def generate(
         )
 
         try:
+            # Initial Generation
             generation_message = (
-                f"Generating [bold magenta]{current_content_type}[/bold magenta] content "
-                f"for [bold cyan]{current_platform}[/bold cyan]..."
+                f"Generating [bold magenta]{current_content_type}[/bold magenta] "
+                f"content for [bold cyan]{current_platform}[/bold cyan]..."
             )
             generated_content = None
             with console.status(generation_message, spinner="dots"):
@@ -380,17 +389,82 @@ def generate(
                 )
 
             if generated_content:
-                console.print("✨ Content generated successfully! ✨")
-                console.rule(f"[bold blue]Preview ({current_platform})[/bold blue]")
+                console.print("✨ Initial content generated successfully! ✨")
 
-                is_markdown_output = current_platform in ["markdown", "devto"]
-                if is_markdown_output:
-                    console.print(Markdown(generated_content))
-                else:
-                    console.print(generated_content)
-                console.rule()
+                current_content = generated_content
+                user_action = None  # Track if user saves or discards
 
-                # Determine output filename
+                # --- Feedback Loop --- #
+                while True:
+                    console.rule(
+                        f"[bold blue]Preview & Refine ({current_platform})[/bold blue]"
+                    )
+                    is_markdown_output = current_platform in [
+                        "markdown",
+                        "devto",
+                    ]
+                    if is_markdown_output:
+                        console.print(Markdown(current_content))
+                    else:
+                        console.print(current_content)
+                    console.rule()
+
+                    feedback_prompt = "\nType your feedback to refine, 'save' to keep, or 'discard' to abandon: "
+                    feedback_input = typer.prompt(
+                        feedback_prompt, default="", show_default=False
+                    ).strip()
+
+                    if feedback_input.lower() == "save":
+                        user_action = "save"
+                        break
+                    elif feedback_input.lower() == "discard":
+                        user_action = "discard"
+                        console.print(
+                            f"[yellow]Discarding content for {current_platform}.[/yellow]"
+                        )
+                        logger.info(
+                            f"User discarded content for {current_platform} "
+                            f"after feedback loop."
+                        )
+                        break
+                    elif feedback_input:  # User provided feedback
+                        console.print("🔄 Refining content based on feedback...")
+                        refinement_message = "Applying feedback..."
+                        new_content = None
+                        with console.status(refinement_message, spinner="dots"):
+                            try:
+                                new_content = generator.regenerate_with_feedback(
+                                    original_content=current_content,
+                                    feedback=feedback_input,
+                                    content_type=current_content_type,
+                                )
+                            except Exception as regen_e:
+                                logger.error(
+                                    f"Error during regeneration call: {regen_e}",
+                                    exc_info=True,
+                                )
+                                console.print(
+                                    f"[bold red]Error applying feedback:[/bold red] {regen_e}"
+                                )
+                                # Continue loop with old content
+
+                        if new_content:
+                            console.print("✅ Refinement applied!")
+                            current_content = new_content
+                        else:
+                            console.print(
+                                "[yellow]Could not apply feedback. "
+                                "Please try again or refine your feedback.[/yellow]"
+                            )
+                        # Continue the loop to show refined content/ask again
+                    else:  # Empty input
+                        console.print(
+                            "Please provide feedback, or type 'save' or 'discard'."
+                        )
+                        # Continue loop
+                # --- End Feedback Loop --- #
+
+                # Determine output filename (moved here, used only if saving)
                 output_extension = (
                     ".md"
                     if is_markdown_output
@@ -400,15 +474,13 @@ def generate(
                     f"{safe_repo_name}_{current_platform}_"
                     f"{current_content_type}{output_extension}"
                 )
-
                 output_filepath = content_output_dir / output_filename
 
-                if typer.confirm(
-                    f"Save generated content to '{output_filepath}'?",
-                ):
+                # Save if the user chose to save
+                if user_action == "save":
                     try:
                         with open(output_filepath, "w") as f:
-                            f.write(generated_content)
+                            f.write(current_content)  # Save the final version
                         success_msg = (
                             f"✅ Successfully saved content to: "
                             f"[link=file://{output_filepath.resolve()}]"
@@ -422,28 +494,24 @@ def generate(
                         console.print(f":x: [bold red]Error:[/bold red] {save_err_msg}")
                         logger.error(save_err_msg)
                         # Decide whether to continue or exit? For now, continue.
-                else:
-                    console.print(
-                        f"[yellow]Save cancelled for {current_platform}.[/yellow]"
-                    )
-                    logger.info(
-                        f"User chose not to save the generated content for {current_platform}."
-                    )
+                # else: user chose discard, already logged
 
             else:
                 error_msg = (
-                    f"Failed to generate content for {current_platform} "
+                    f"Failed to generate initial content for {current_platform} "
                     f"{current_content_type}. Check logs."
                 )
                 console.print(f":x: [bold red]Error:[/bold red] {error_msg}")
                 logger.error(
-                    f"Content generation failed for {current_platform}/{current_content_type}."
+                    f"Content generation failed for "
+                    f"{current_platform}/{current_content_type}."
                 )
                 # Continue to next platform
 
         except Exception as e:
             err_intro = (
-                f"An error occurred during content generation for {current_platform}:"
+                f"An error occurred during content generation/refinement "
+                f"for {current_platform}:"
             )
             logger.error(f"{err_intro} {e}", exc_info=True)
             console.print(f":x: [bold red]{err_intro}[/bold red] {e}")
