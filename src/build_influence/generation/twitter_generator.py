@@ -81,7 +81,11 @@ class TwitterGenerator(BaseContentGenerator):
         )
         prompt = self._build_prompt(content_type, context_override)
         # Use lower max_tokens for Twitter
-        generated_content = self._call_llm(prompt, max_tokens=100, temperature=0.6)
+        generated_content = self._call_llm(
+            prompt,
+            max_tokens=1500,
+            temperature=0.6,
+        )
 
         if generated_content:
             # Basic length validation

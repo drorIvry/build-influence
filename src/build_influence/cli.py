@@ -4,7 +4,7 @@ import os
 import json
 from pathlib import Path
 import time
-from typing import Dict, Type
+from typing import Dict, Type, List
 from rich.console import Console
 from rich.markdown import Markdown
 
@@ -208,18 +208,22 @@ def generate(
     repo_name: str = typer.Argument(
         ..., help="The name of the repository to generate content for."
     ),
-    platform: str = typer.Argument(
-        ...,
-        help="Target platform (e.g., devto, twitter, linkedin, markdown).",
+    platform: str | None = typer.Option(
+        None,
+        "--platform",
+        "-p",
+        help="Target platform (e.g., devto, twitter, linkedin, markdown). "
+        "If omitted, generates for all platforms.",
     ),
-    content_type: str = typer.Argument(
-        ...,
-        help="Type of content (e.g., announcement, deepdive).",
+    content_type: str | None = typer.Argument(
+        None,
+        help="Type of content (e.g., announcement, deepdive). "
+        "If omitted, uses platform default.",
     ),
 ):
     """
     Generates content based on analysis results using a platform-specific
-    strategy.
+    strategy. If no platform is specified, generates for all.
     """
     console = Console()
     analysis_dir: Path = ctx.obj["ANALYSIS_DIR"]
@@ -230,23 +234,7 @@ def generate(
     safe_repo_name = "".join(c if c.isalnum() else "_" for c in repo_name)
     analysis_file_path = analysis_dir / f"{safe_repo_name}_analysis.json"
 
-    # Map platform strings to generator classes (Strategy pattern)
-    generator_strategies: Dict[str, Type[BaseContentGenerator]] = {
-        "markdown": MarkdownGenerator,
-        "devto": DevtoGenerator,
-        "twitter": TwitterGenerator,
-        "linkedin": LinkedinGenerator,
-    }
-
-    selected_platform = platform.lower()
-    if selected_platform not in generator_strategies:
-        msg = f"Error: Invalid platform '{platform}'. "
-        f"Choose from: {list(generator_strategies.keys())}"
-        console.print(f":x: [bold red]Error:[/bold red] {msg}")
-        console.print("Please run the 'analyze' command first.")
-        logger.error(f"Invalid generation platform specified: {platform}")
-        raise typer.Exit(code=1)
-
+    # --- Load data ONCE --- Moved outside the loop
     if not analysis_file_path.exists():
         msg = f"Analysis file '{analysis_file_path}' not found."
         console.print(f":x: [bold red]Error:[/bold red] {msg}")
@@ -269,10 +257,6 @@ def generate(
         console.print(f":x: [bold red]Error:[/bold red] {msg}")
         raise typer.Exit(code=1)
 
-    # Select the appropriate generator strategy
-    GeneratorClass = generator_strategies[selected_platform]
-
-    # --- Load additional context ---
     interview_data = None
     readme_content = None
     original_repo_path_str = analysis_data.get("original_repo_path")
@@ -313,91 +297,166 @@ def generate(
             logger.info("No README file found in repository root.")
     else:
         logger.warning("Original repository path not found in analysis results.")
-    # --- End loading additional context ---
+    # --- End loading data ---
 
-    generator = GeneratorClass(
-        analysis_data,
-        interview_data=interview_data,
-        readme_content=readme_content,
-    )
-    logger.info(
-        f"Using {GeneratorClass.__name__} for platform " f"'{selected_platform}'."
-    )
+    # Map platform strings to generator classes (Strategy pattern)
+    generator_strategies: Dict[str, Type[BaseContentGenerator]] = {
+        "markdown": MarkdownGenerator,
+        "devto": DevtoGenerator,
+        "twitter": TwitterGenerator,
+        "linkedin": LinkedinGenerator,
+    }
 
-    # TODO: Add context_override if needed (e.g., from specific user input)
-    try:
-        generation_message = (
-            f"Generating [bold magenta]{content_type}[/bold magenta] content "
-            f"for [bold cyan]{selected_platform}[/bold cyan]..."
-        )
-        generated_content = None
-        with console.status(generation_message, spinner="dots"):
-            generated_content = generator.generate(
-                content_type=content_type.lower(),
-                # context_override=... # Pass context if loaded
+    # Default content types per platform
+    default_content_types = {
+        "markdown": "announcement",
+        "devto": "deepdive",
+        "twitter": "thread_intro",  # Example default
+        "linkedin": "post_summary",  # Example default
+    }
+
+    # --- Determine target platforms --- #
+    target_platforms: List[str] = []
+    if platform is None:
+        # Default to all platforms
+        target_platforms = list(generator_strategies.keys())
+        logger.info(f"No platform specified, generating for all: {target_platforms}")
+    else:
+        selected_platform = platform.lower()
+        if selected_platform not in generator_strategies:
+            msg = (
+                f"Invalid platform '{selected_platform}'. Choose from: "
+                f"{list(generator_strategies.keys())}"
             )
-
-        if generated_content:
-            console.print("✨ Content generated successfully! ✨")
-            console.rule("[bold blue]Preview[/bold blue]")
-
-            # Preview using Markdown if applicable
-            is_markdown_output = selected_platform in ["markdown", "devto"]
-            if is_markdown_output:
-                console.print(Markdown(generated_content))
-            else:
-                console.print(generated_content)
-            console.rule()
-
-            # Determine output filename
-            output_extension = ".md" if is_markdown_output else ".txt"
-            if selected_platform == "twitter":
-                output_extension = ".txt"
-            # TODO: Define extensions more robustly if needed
-
-            output_filename = (
-                f"{safe_repo_name}_{selected_platform}_{content_type}"
-                f"{output_extension}"
-            )
-            output_filepath = content_output_dir / output_filename
-
-            # Ask for approval to save
-            if typer.confirm(
-                f"Save generated content to '{output_filepath}'?",
-            ):
-                try:
-                    with open(output_filepath, "w") as f:
-                        f.write(generated_content)
-                    success_msg = (
-                        f"✅ Successfully saved content to: "
-                        f"[link=file://{output_filepath.resolve()}]"
-                        f"{output_filepath}[/link]"
-                    )
-                    console.print(success_msg)
-                    logger.info(f"Content saved to {output_filepath}")
-                except IOError as e:
-                    save_err_msg = f"Error saving content to {output_filepath}: {e}"
-                    console.print(f":x: [bold red]Error:[/bold red] {save_err_msg}")
-                    logger.error(save_err_msg)
-                    raise typer.Exit(code=1)
-            else:
-                console.print("[yellow]Save cancelled by user.[/yellow]")
-                logger.info("User chose not to save the generated content.")
-
-        else:
-            error_msg = (
-                f"Failed to generate content for {platform} "
-                f"{content_type}. Check logs."
-            )
-            console.print(f":x: [bold red]Error:[/bold red] {error_msg}")
-            logger.error("Content generation failed.")
+            console.print(f":x: [bold red]Error:[/bold red] {msg}")
+            logger.error(f"Invalid generation platform specified: {selected_platform}")
             raise typer.Exit(code=1)
+        target_platforms = [selected_platform]
+        logger.info(f"Generating for specified platform: {selected_platform}")
 
-    except Exception as e:
-        err_intro = "An error occurred during content generation:"
-        logger.error(f"{err_intro} {e}", exc_info=True)
-        console.print(f":x: [bold red]{err_intro}[/bold red] {e}")
-        raise typer.Exit(code=1)
+    # --- Loop through platforms and generate --- #
+    generation_successful = False  # Track if at least one generation worked
+    for current_platform in target_platforms:
+        console.rule(f"[bold blue]Platform: {current_platform}[/bold blue]")
+
+        # Determine the content type for this platform
+        current_content_type = content_type.lower() if content_type else None
+        if not current_content_type:
+            current_content_type = default_content_types.get(current_platform)
+            if not current_content_type:
+                msg = f"No default content type defined for platform '{current_platform}'. Skipping."
+                console.print(f":yellow_circle: [yellow]Warning:[/yellow] {msg}")
+                logger.warning(msg)
+                continue  # Skip to next platform
+            else:
+                logger.info(
+                    f"Using default content type '{current_content_type}' for {current_platform}"
+                )
+        else:
+            logger.info(
+                f"Using specified content type '{current_content_type}' for {current_platform}"
+            )
+
+        # Select the appropriate generator strategy
+        GeneratorClass = generator_strategies[current_platform]
+        generator = GeneratorClass(
+            analysis_data,
+            interview_data=interview_data,
+            readme_content=readme_content,
+        )
+        logger.info(
+            f"Using {GeneratorClass.__name__} for platform " f"'{current_platform}'."
+        )
+
+        try:
+            generation_message = (
+                f"Generating [bold magenta]{current_content_type}[/bold magenta] content "
+                f"for [bold cyan]{current_platform}[/bold cyan]..."
+            )
+            generated_content = None
+            with console.status(generation_message, spinner="dots"):
+                generated_content = generator.generate(
+                    content_type=current_content_type,
+                )
+
+            if generated_content:
+                console.print("✨ Content generated successfully! ✨")
+                console.rule(f"[bold blue]Preview ({current_platform})[/bold blue]")
+
+                is_markdown_output = current_platform in ["markdown", "devto"]
+                if is_markdown_output:
+                    console.print(Markdown(generated_content))
+                else:
+                    console.print(generated_content)
+                console.rule()
+
+                # Determine output filename
+                output_extension = (
+                    ".md"
+                    if is_markdown_output
+                    else (".txt" if current_platform == "twitter" else ".txt")
+                )
+                output_filename = (
+                    f"{safe_repo_name}_{current_platform}_"
+                    f"{current_content_type}{output_extension}"
+                )
+
+                output_filepath = content_output_dir / output_filename
+
+                if typer.confirm(
+                    f"Save generated content to '{output_filepath}'?",
+                ):
+                    try:
+                        with open(output_filepath, "w") as f:
+                            f.write(generated_content)
+                        success_msg = (
+                            f"✅ Successfully saved content to: "
+                            f"[link=file://{output_filepath.resolve()}]"
+                            f"{output_filepath}[/link]"
+                        )
+                        console.print(success_msg)
+                        logger.info(f"Content saved to {output_filepath}")
+                        generation_successful = True  # Mark success
+                    except IOError as e:
+                        save_err_msg = f"Error saving content to {output_filepath}: {e}"
+                        console.print(f":x: [bold red]Error:[/bold red] {save_err_msg}")
+                        logger.error(save_err_msg)
+                        # Decide whether to continue or exit? For now, continue.
+                else:
+                    console.print(
+                        f"[yellow]Save cancelled for {current_platform}.[/yellow]"
+                    )
+                    logger.info(
+                        f"User chose not to save the generated content for {current_platform}."
+                    )
+
+            else:
+                error_msg = (
+                    f"Failed to generate content for {current_platform} "
+                    f"{current_content_type}. Check logs."
+                )
+                console.print(f":x: [bold red]Error:[/bold red] {error_msg}")
+                logger.error(
+                    f"Content generation failed for {current_platform}/{current_content_type}."
+                )
+                # Continue to next platform
+
+        except Exception as e:
+            err_intro = (
+                f"An error occurred during content generation for {current_platform}:"
+            )
+            logger.error(f"{err_intro} {e}", exc_info=True)
+            console.print(f":x: [bold red]{err_intro}[/bold red] {e}")
+            # Continue to next platform
+
+    # --- End loop --- #
+
+    if not generation_successful:
+        console.print(
+            ":warning: [yellow]No content was successfully generated and saved.[/yellow]"
+        )
+        logger.warning("Generate command finished, but no content was saved.")
+        # Optionally raise Exit here if failure is critical
 
 
 @app.command()
