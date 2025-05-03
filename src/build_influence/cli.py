@@ -1212,17 +1212,19 @@ def interactive_workflow(ctx: typer.Context):
                             failed_count += 1
                             continue
 
-                        # Assuming publisher needs PublicationContent object
-                        pub_content = PublicationContent(
-                            platform=platform_to_publish,
-                            content=content_to_publish,
-                            source_file=str(file_to_publish),
-                            # Add other metadata if needed/available
-                            title=f"Content from {safe_repo_name}",  # Basic title
-                        )
+                        try:
+                            # Assuming publisher needs PublicationContent object
+                            pub_content = PublicationContent(
+                                body=content_to_publish,
+                                # Add other metadata if needed/available
+                                title=f"Content from {safe_repo_name}",  # Basic title
+                                tags=[],
+                            )
+                        except Exception:
+                            logger.exception("error parsing the content")
 
                         # Perform the publication
-                        result: PublishResult = publisher.publish(pub_content)
+                        result: PublishResult = publisher.publish(pub_content, config)
 
                         if result.success:
                             console.print(
