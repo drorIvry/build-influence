@@ -44,8 +44,8 @@ We actively welcome your pull requests:
 4.  Install dependencies:
     ```bash
     pip install -r requirements.txt
-    # Install development/testing tools if they are not in requirements.txt
-    pip install black flake8 mypy pytest pytest-cov build twine
+    # Install development/testing tools and type stubs if they are not in requirements.txt
+    pip install black flake8 mypy pytest pytest-cov build twine types-tqdm types-PyYAML
     ```
 
 ## Coding Standards
