@@ -387,7 +387,8 @@ class RepositoryAnalyzer:
 
         # --- Debugging Log ---
         # logger.debug(
-        #    f"Code file {file_path.name}: Raw insights type: {type(raw_insights)}"
+        #    f"Code file {file_path.name}: "
+        #    f"Raw insights type: {type(raw_insights)}"
         # )
         # if isinstance(raw_insights, dict):
         #     logger.debug(
@@ -516,7 +517,7 @@ if __name__ == "__main__":
                     print(f"      Error: {insights['error']}")
                 else:
                     print(f"      Purpose: {insights.get('purpose', 'N/A')}")
-                    print(f"      Elements: {insights.get('key_elements', [])}")
+                    print(f"      Elements: " f"{insights.get('key_elements', [])}")
             elif "ai_doc_insights" in file_info:
                 insights = file_info["ai_doc_insights"]
                 print("    [Doc Insights]")

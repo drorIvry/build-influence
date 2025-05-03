@@ -90,6 +90,12 @@ def load_config(config_path: str = DEFAULT_CONFIG_PATH) -> Box:
     interview_conf["model"] = os.environ.get(
         "INTERVIEW_LLM_MODEL", interview_conf.get("model", main_llm_model)
     )
+    # Add interview specific settings
+    interview_conf["max_questions"] = int(
+        os.environ.get(
+            "INTERVIEW_MAX_QUESTIONS", interview_conf.get("max_questions", 7)
+        )
+    )
 
     # Preferences
     pref_conf = config_data.setdefault("preferences", {})

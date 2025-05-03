@@ -5,7 +5,6 @@ from loguru import logger
 import os
 import time
 
-# Rich imports for enhanced CLI
 from rich.console import Console
 from rich.panel import Panel
 from rich.prompt import Prompt, Confirm
@@ -14,14 +13,8 @@ from rich.text import Text
 
 from build_influence.config import config
 
-# Constants for interview flow control
-MAX_INTERVIEW_QUESTIONS = 7
-MIN_INTERVIEW_QUESTIONS = 3
-
 
 class Interviewer:
-    """Conducts an interactive interview using LLM based on repo analysis."""
-
     def __init__(self, analysis_results: Dict[str, Any]):
         """
         Initializes the Interviewer.
@@ -53,6 +46,12 @@ class Interviewer:
             [],
         )
         self.console = Console()  # Rich console instance
+        # Load max questions from config
+        self.max_questions = config.interview.get(
+            "max_questions",
+            7,
+        )
+        self.min_questions = 3
 
     def _clear_screen(self):
         """Clears the terminal screen."""
@@ -172,7 +171,8 @@ class Interviewer:
         questions = [q.strip() for q in llm_content.split("\n") if q.strip()]
         cleaned_questions = []
         for q in questions:
-            # Basic cleaning - remove potential LLM artifacts like Q:/A: prefixes or list markers
+            # Basic cleaning - remove potential LLM artifacts
+            # like Q:/A: prefixes or list markers
             if q.startswith("Q:") or q.startswith("A:"):
                 continue
             while q and not q[0].isalnum():
@@ -209,13 +209,18 @@ class Interviewer:
         self._clear_screen()
         self.console.print(
             Panel(
-                Text(f"Starting Interview for {self.repo_name}", style="bold cyan"),
+                Text(
+                    f"Starting Interview for {self.repo_name}",
+                    style="bold cyan",
+                ),
                 title="Build Influence Interview",
                 subtitle="Let's gather some context!",
                 expand=False,
             )
         )
-        self.console.print("I'll ask some questions to understand the project better.")
+        self.console.print(
+            "I'll ask some questions to understand the project better.",
+        )
         self.console.print(
             "[dim]Type your answers freely. To finish early, "
             "type 'done', 'exit', or 'quit'.[/dim]"
@@ -247,11 +252,11 @@ class Interviewer:
             ]
 
         question_count = 0
-        while question_count < MAX_INTERVIEW_QUESTIONS and questions_to_ask:
+        while question_count < self.max_questions and questions_to_ask:
             self._clear_screen()  # Clear screen before each question
             current_question = questions_to_ask.pop(0)
             question_number_text = Text(
-                f" Question {question_count + 1}/{MAX_INTERVIEW_QUESTIONS} ",
+                f" Question {question_count + 1}/{self.max_questions} ",
                 style="bold white on blue",
             )
 
@@ -270,18 +275,18 @@ class Interviewer:
 
             except KeyboardInterrupt:
                 self.console.print(
-                    "\n[bold yellow]Interview interrupted by user.[/bold yellow]"
+                    "\n[bold yellow]Interview" + "interrupted by user.[/bold yellow]"
                 )
                 break  # Exit the loop gracefully
 
             answer_lower_stripped = answer.lower().strip()
             if answer_lower_stripped in ["done", "exit", "quit"]:
                 confirm_exit = True
-                if question_count < MIN_INTERVIEW_QUESTIONS:
+                if question_count < self.min_questions:
                     # Use Rich Confirm
                     confirm_exit = Confirm.ask(
                         Text(
-                            "Exit interview early? " "The insights might be limited.",
+                            "Exit interview early? " + "The insights might be limited.",
                             style="yellow",
                         ),
                         default=False,
@@ -314,25 +319,23 @@ class Interviewer:
             question_count += 1
 
             # Generate follow-up if needed and capacity allows
-            if question_count < MAX_INTERVIEW_QUESTIONS and not questions_to_ask:
+            if question_count < self.max_questions and not questions_to_ask:
                 followup_prompt = self._build_followup_prompt()
-                followup_response = self._call_llm(followup_prompt, max_tokens=150)
+                followup_response = self._call_llm(
+                    followup_prompt,
+                    max_tokens=150,
+                )
                 new_questions = self._parse_questions(followup_response)
                 if new_questions:
-                    questions_to_ask = new_questions  # Replace remaining questions
+                    questions_to_ask = new_questions
                 else:
                     logger.warning("LLM failed to provide follow-up question.")
-                    # Optionally inform the user if needed, or just let it finish naturally
-                    # self.console.print(
-                    #    "[dim]Could not generate a follow-up question.[/dim]"
-                    # )
 
-        # --- Interview Finished ---
         self._clear_screen()
         finish_message = "Interview Finished"
         finish_style = "bold green"
-        if question_count >= MAX_INTERVIEW_QUESTIONS:
-            finish_message = f"Reached Question Limit ({MAX_INTERVIEW_QUESTIONS})"
+        if question_count >= self.max_questions:
+            finish_message = f"Reached Question Limit ({self.max_questions})"
             finish_style = "bold yellow"
         elif not self.conversation_history and question_count == 0:
             finish_message = "Interview Aborted"
