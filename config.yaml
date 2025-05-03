@@ -40,13 +40,13 @@ generation:
   default_tone: "informative and slightly informal"
   max_retries: 3
   # Templates can be defined here or loaded from separate files
-
+  model: "o3-mini"
 # User Preferences (Defaults)
 preferences:
   platforms:
     - devto
-    # - twitter # Example platforms
-    # - linkedin
+    - twitter # Example platforms
+    - linkedin
   content_tone: null # If null, uses generation.default_tone
   approval_workflow: "manual" # Options: manual, automatic
   publication_frequency: "manual" # Options: manual, daily, weekly, etc.

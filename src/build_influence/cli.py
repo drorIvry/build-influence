@@ -5,6 +5,8 @@ import json
 from pathlib import Path
 import time
 from typing import Dict, Type
+from rich.console import Console
+from rich.markdown import Markdown
 
 from build_influence.utils import setup_logging
 from build_influence.config import config
@@ -48,11 +50,21 @@ def callback(
     logger.debug(f"Using configuration file: {config_file}")
     # Config is loaded globally in config/loader.py
     # Store base output directories in context
-    analysis_dir = Path(config.get("output_dirs").get("analysis", "output/analysis"))
+    analysis_dir = Path(
+        config.get("output_dirs").get(
+            "analysis",
+            "output/analysis",
+        ),
+    )
     interview_dir = Path(
         config.get("output_dirs").get("interviews", "output/interviews")
     )
-    content_dir = Path(config.get("output_dirs").get("content", "output/content"))
+    content_dir = Path(
+        config.get("output_dirs").get(
+            "content",
+            "output/content",
+        ),
+    )
 
     # Ensure directories exist
     analysis_dir.mkdir(parents=True, exist_ok=True)
@@ -209,6 +221,7 @@ def generate(
     Generates content based on analysis results using a platform-specific
     strategy.
     """
+    console = Console()
     analysis_dir: Path = ctx.obj["ANALYSIS_DIR"]
     interview_dir: Path = ctx.obj["INTERVIEW_DIR"]
     content_output_dir: Path = ctx.obj["CONTENT_OUTPUT_DIR"]
@@ -227,18 +240,17 @@ def generate(
 
     selected_platform = platform.lower()
     if selected_platform not in generator_strategies:
-        typer.secho(
-            f"Error: Invalid platform '{platform}'. "
-            f"Choose from: {list(generator_strategies.keys())}",
-            fg=typer.colors.RED,
-        )
+        msg = f"Error: Invalid platform '{platform}'. "
+        f"Choose from: {list(generator_strategies.keys())}"
+        console.print(f":x: [bold red]Error:[/bold red] {msg}")
+        console.print("Please run the 'analyze' command first.")
         logger.error(f"Invalid generation platform specified: {platform}")
         raise typer.Exit(code=1)
 
     if not analysis_file_path.exists():
         msg = f"Analysis file '{analysis_file_path}' not found."
-        typer.secho(msg, fg=typer.colors.RED)
-        typer.echo("Please run the 'analyze' command first.")
+        console.print(f":x: [bold red]Error:[/bold red] {msg}")
+        console.print("Please run the 'analyze' command first.")
         logger.error("Generate command failed: Analysis results not found.")
         raise typer.Exit(code=1)
 
@@ -249,12 +261,12 @@ def generate(
     except json.JSONDecodeError as e:
         msg = f"Error reading '{analysis_file_path}': Invalid JSON."
         logger.error(f"Failed to decode JSON from {analysis_file_path}: {e}")
-        typer.secho(msg, fg=typer.colors.RED)
+        console.print(f":x: [bold red]Error:[/bold red] {msg}")
         raise typer.Exit(code=1)
     except Exception as e:
         msg = f"Error reading analysis file: {e}"
         logger.error(f"Failed to read analysis file {analysis_file_path}: {e}")
-        typer.secho(msg, fg=typer.colors.RED)
+        console.print(f":x: [bold red]Error:[/bold red] {msg}")
         raise typer.Exit(code=1)
 
     # Select the appropriate generator strategy
@@ -314,71 +326,77 @@ def generate(
 
     # TODO: Add context_override if needed (e.g., from specific user input)
     try:
-        typer.echo(f"Generating content for {platform=} {content_type=}...")
-        generated_content = generator.generate(
-            content_type=content_type.lower(),
-            # context_override=... # Pass context if loaded
+        generation_message = (
+            f"Generating [bold magenta]{content_type}[/bold magenta] content "
+            f"for [bold cyan]{selected_platform}[/bold cyan]..."
         )
+        generated_content = None
+        with console.status(generation_message, spinner="dots"):
+            generated_content = generator.generate(
+                content_type=content_type.lower(),
+                # context_override=... # Pass context if loaded
+            )
 
         if generated_content:
-            # Determine output filename based on the *actual* generator used
-            output_extension = ".md"  # Default to markdown
-            if selected_platform == "twitter":
-                # Plain text for twitter might be better
-                output_extension = ".txt"
-            # Add other extensions if needed for specific platforms
+            console.print("✨ Content generated successfully! ✨")
+            console.rule("[bold blue]Preview[/bold blue]")
 
-            # Use the safe repo name for the output file
+            # Preview using Markdown if applicable
+            is_markdown_output = selected_platform in ["markdown", "devto"]
+            if is_markdown_output:
+                console.print(Markdown(generated_content))
+            else:
+                console.print(generated_content)
+            console.rule()
+
+            # Determine output filename
+            output_extension = ".md" if is_markdown_output else ".txt"
+            if selected_platform == "twitter":
+                output_extension = ".txt"
+            # TODO: Define extensions more robustly if needed
+
             output_filename = (
                 f"{safe_repo_name}_{selected_platform}_{content_type}"
                 f"{output_extension}"
             )
             output_filepath = content_output_dir / output_filename
 
-            # Ensure output directory exists (already done in callback)
-            # output_filepath.parent.mkdir(parents=True, exist_ok=True)
-
-            # Save the content to the file
-            try:
-                with open(output_filepath, "w") as f:
-                    f.write(generated_content)
-                success_msg = (
-                    f"Successfully generated content and saved to: "
-                    f"{output_filepath}"
-                )
-                typer.secho(success_msg, fg=typer.colors.GREEN)
-                logger.info(success_msg)
-
-                # Optionally print the content as well
-                # typer.secho(
-                #    f"\n--- Generated {platform.capitalize()} "
-                #    f"{content_type.capitalize()} Content ---",
-                #    fg=typer.colors.CYAN,
-                # )
-                # typer.echo(generated_content)
-                # typer.secho(
-                #    "-------------------------------------------------",
-                #    fg=typer.colors.CYAN,
-                # )
-            except IOError as e:
-                save_err_msg = f"Error saving content to {output_filepath}: {e}"
-                typer.secho(save_err_msg, fg=typer.colors.RED)
-                logger.error(save_err_msg)
-                raise typer.Exit(code=1)
+            # Ask for approval to save
+            if typer.confirm(
+                f"Save generated content to '{output_filepath}'?",
+            ):
+                try:
+                    with open(output_filepath, "w") as f:
+                        f.write(generated_content)
+                    success_msg = (
+                        f"✅ Successfully saved content to: "
+                        f"[link=file://{output_filepath.resolve()}]"
+                        f"{output_filepath}[/link]"
+                    )
+                    console.print(success_msg)
+                    logger.info(f"Content saved to {output_filepath}")
+                except IOError as e:
+                    save_err_msg = f"Error saving content to {output_filepath}: {e}"
+                    console.print(f":x: [bold red]Error:[/bold red] {save_err_msg}")
+                    logger.error(save_err_msg)
+                    raise typer.Exit(code=1)
+            else:
+                console.print("[yellow]Save cancelled by user.[/yellow]")
+                logger.info("User chose not to save the generated content.")
 
         else:
-            typer.secho(
+            error_msg = (
                 f"Failed to generate content for {platform} "
-                f"{content_type}. Check logs.",
-                fg=typer.colors.RED,
+                f"{content_type}. Check logs."
             )
+            console.print(f":x: [bold red]Error:[/bold red] {error_msg}")
             logger.error("Content generation failed.")
             raise typer.Exit(code=1)
 
     except Exception as e:
         err_intro = "An error occurred during content generation:"
         logger.error(f"{err_intro} {e}", exc_info=True)
-        typer.secho(f"{err_intro} {e}", fg=typer.colors.RED)
+        console.print(f":x: [bold red]{err_intro}[/bold red] {e}")
         raise typer.Exit(code=1)
 
 
@@ -405,8 +423,13 @@ def logs(
     """Displays the application log file."""
     log_file_path = Path(os.getenv("LOG_FILE", "logs/build_influence.log"))
     if not log_file_path.exists():
-        typer.secho(f"Log file not found: {log_file_path}", fg=typer.colors.RED)
-        logger.error(f"Log file access failed: {log_file_path} does not exist.")
+        typer.secho(
+            f"Log file not found: {log_file_path}",
+            fg=typer.colors.RED,
+        )
+        logger.error(
+            f"Log file access failed: {log_file_path} does not exist.",
+        )
         raise typer.Exit(code=1)
 
     try:

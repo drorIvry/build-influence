@@ -10,9 +10,7 @@ from loguru import logger
 from build_influence.config import config
 from build_influence.analysis.feature_identifier import FeatureIdentifier
 
-# Configure LiteLLM logging based on our main log level
-# litellm.set_verbose(config.logging.level == "DEBUG")
-
+litellm.drop_params = True
 # Constants
 MAX_FILE_SIZE_BYTES = 500 * 1024  # Limit file size for AI analysis (e.g., 500KB)
 
@@ -123,7 +121,7 @@ class RepositoryAnalyzer:
         logger.info("Starting high-level feature identification...")
         feature_identifier = FeatureIdentifier()
         high_level_features = feature_identifier.identify_features(interim_result)
-        logger.info("Completed high-level feature identification.")
+        logger.info(f"Completed high-level feature identification.")
         # --------------------------------------------
 
         # --- Final Result ---
@@ -255,7 +253,10 @@ class RepositoryAnalyzer:
         file_path: Path,
         prompt_template: str,
     ) -> Dict[str, Any]:
-        """Generic helper to analyze file content using LiteLLM with a specific prompt."""
+        """
+        Generic helper to analyze file content using LiteLLM with a specific
+        prompt.
+        """
         insights = {"error": None}
         file_name = file_path.name
 
@@ -301,14 +302,19 @@ class RepositoryAnalyzer:
             ]
 
             # --- Call LiteLLM ---
-            model = config.llm.model
-            # logger.debug(f"Sending {file_name} to LLM ({model})...") # Too verbose for tqdm
+            # Use the analysis-specific model, falling back to the general LLM model
+            analysis_model = config.analysis.get("model", config.llm.model)
+            llm_provider = config.llm.get("provider")  # Assuming provider is consistent
+            model_string = (
+                f"{llm_provider}/{analysis_model}" if llm_provider else analysis_model
+            )
+
+            # logger.debug(f"Sending {file_name} to LLM ({model_string})...")
             response = litellm.completion(
-                model=model,
+                model=model_string,
                 messages=messages,
-                temperature=config.llm.temperature,
+                temperature=config.llm.temperature,  # Keep general temp/tokens for now
                 max_tokens=config.llm.max_tokens,
-                # api_key=config.llm.api_key, # Ensure API key is set in env
             )
 
             # --- Process Response ---

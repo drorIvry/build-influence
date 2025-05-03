@@ -35,6 +35,12 @@ def load_config(config_path: str = DEFAULT_CONFIG_PATH) -> Box:
     config_data.setdefault("output_dirs", {})
 
     # --- Environment Variable Overrides ---
+    # Fetch the main model first, used as fallback
+    default_llm_model = config_data.get("llm", {}).get(
+        "model", "claude-3.5-sonnet-20240620"
+    )
+    main_llm_model = os.environ.get("LLM_MODEL", default_llm_model)
+
     # Logging
     log_conf = config_data["logging"]
     log_conf["level"] = os.environ.get("LOG_LEVEL", log_conf.get("level", "INFO"))
@@ -48,31 +54,39 @@ def load_config(config_path: str = DEFAULT_CONFIG_PATH) -> Box:
         "LOG_RETENTION", log_conf.get("retention", "30 days")
     )
 
-    # LLM
-    llm_conf = config_data["llm"]
-    llm_conf["model"] = os.environ.get(
-        "LLM_MODEL",
-        llm_conf.get("model", "claude-3.5-sonnet-20240620"),  # Updated default
-    )
+    # LLM (General Fallbacks)
+    llm_conf = config_data.setdefault("llm", {})
+    # Set the potentially overridden main model
+    llm_conf["model"] = main_llm_model
     llm_conf["max_tokens"] = int(
         os.environ.get("LLM_MAX_TOKENS", llm_conf.get("max_tokens", 1500))
     )
     llm_conf["temperature"] = float(
         os.environ.get("LLM_TEMPERATURE", llm_conf.get("temperature", 0.7))
     )
+    # Keep provider setting if needed, assuming it's consistent for now
+    llm_conf["provider"] = os.environ.get("LLM_PROVIDER", llm_conf.get("provider"))
 
-    # llm_conf["api_key"] = os.environ.get("ANTHROPIC_API_KEY")  # Example
-
-    # Analysis
-    analysis_conf = config_data["analysis"]
+    # Analysis Specific Model
+    analysis_conf = config_data.setdefault("analysis", {})
+    analysis_conf["model"] = os.environ.get(
+        "ANALYSIS_LLM_MODEL", analysis_conf.get("model", main_llm_model)
+    )
     analysis_conf["max_files_to_parse"] = int(
         os.environ.get(
             "ANALYSIS_MAX_FILES", analysis_conf.get("max_files_to_parse", 1000)
         )
     )
 
+    # Generation Specific Model (Composer)
+    gen_conf = config_data.setdefault("generation", {})
+    gen_conf["model"] = os.environ.get(
+        "COMPOSER_LLM_MODEL", gen_conf.get("model", main_llm_model)
+    )
+    # Add other generation specific config if needed later
+
     # Preferences
-    pref_conf = config_data["preferences"]
+    pref_conf = config_data.setdefault("preferences", {})
     pref_conf["approval_workflow"] = os.environ.get(
         "PREF_APPROVAL", pref_conf.get("approval_workflow", "manual")
     )

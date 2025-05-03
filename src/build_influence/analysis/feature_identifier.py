@@ -10,6 +10,8 @@ MAX_INSIGHTS_TO_INCLUDE = 15
 MAX_CONTEXT_LENGTH = 4000
 MAX_FEATURE_ID_TOKENS_OFFSET = 500
 
+litellm.drop_params = True
+
 
 class FeatureIdentifier:
     """Identifies high-level tech features using AI from analysis results."""

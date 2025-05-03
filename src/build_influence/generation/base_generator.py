@@ -5,6 +5,8 @@ from abc import ABC, abstractmethod
 
 from build_influence.config import config
 
+litellm.drop_params = True
+
 
 class BaseContentGenerator(ABC):
     """Abstract base class for content generators."""
@@ -49,14 +51,17 @@ class BaseContentGenerator(ABC):
         Returns:
             The generated content as a string, or None if an error occurred.
         """
-        logger.debug(f"Sending content generation prompt to LLM ({self.llm_model}):")
+        # Use the composer-specific model, falling back to the general LLM model
+        composer_model = config.generation.get("model", config.llm.model)
+        llm_provider = config.llm.get("provider")  # Assuming provider is consistent
+        model_string = (
+            f"{llm_provider}/{composer_model}" if llm_provider else composer_model
+        )
+
+        logger.debug(f"Sending content generation prompt to LLM ({model_string}):")
         logger.trace(prompt)  # Use trace for potentially long prompts
         try:
-            model_string = (
-                f"{self.llm_provider}/{self.llm_model}"
-                if self.llm_provider
-                else self.llm_model
-            )
+            # model_string is already constructed above
             response = litellm.completion(
                 model=model_string,
                 messages=[{"role": "user", "content": prompt}],
