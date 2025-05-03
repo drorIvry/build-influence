@@ -67,11 +67,13 @@ class DevtoGenerator(BaseContentGenerator):
 1. Create an engaging Dev.to article based on the context.
 2. Use Markdown for formatting (headers, code blocks, lists).
 3. Adapt the tone to be informative yet conversational, suitable for Dev.to.
-4. Structure the article logically (intro, key points, 
+    make it a bit quip-y and humorous, DON'T MAKE IT CREENGY!
+4. Structure the article logically (intro, key points,
    conclusion/call to action).
-5. If '{content_type}' is 'deepdive', focus on technical details. If 
-   'announcement', highlight the release/purpose.
-6. Output only the article content in Markdown.
+5. Include code snippets and how to install and use the project.
+6. if appropriate include a mermaid diagram
+7. Use emojis to make the article more engaging but don't over do it.
+8. Output only the article content in Markdown.
 
 **Generated Dev.to Article (Markdown):**
 """.strip()
@@ -88,16 +90,19 @@ class DevtoGenerator(BaseContentGenerator):
         Generates Dev.to article content.
         """
         logger.info(
-            f"Generating Dev.to content for {content_type=} for '{self.repo_name}'"
+            f"Generating Dev.to {content_type=} for '{self.repo_name}'",
         )
         prompt = self._build_prompt(content_type, context_override)
         # Use the base class method to call LLM
         generated_content = self._call_llm(prompt)
 
         if generated_content:
-            logger.info(f"Successfully generated Dev.to content for {content_type}.")
-            # TODO: Add Dev.to specific post-processing/validation?
+            logger.info(
+                f"Successfully generated Dev.to content for {content_type}.",
+            )
             return generated_content
         else:
-            logger.error(f"Failed to generate Dev.to content for {content_type}.")
+            logger.error(
+                f"Failed to generate Dev.to content for {content_type}.",
+            )
             return None
