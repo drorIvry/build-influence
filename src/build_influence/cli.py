@@ -4,9 +4,10 @@ import os
 import json
 from pathlib import Path
 import time
-from typing import Dict, Type, List
+from typing import Dict, Type, List, Tuple
 from rich.console import Console
 from rich.markdown import Markdown
+from rich.prompt import Prompt, Confirm
 
 from build_influence.utils import setup_logging
 from build_influence.config import config
@@ -33,6 +34,23 @@ app = typer.Typer(
 
 ANALYSIS_FILENAME = "analysis_results.json"
 INTERVIEW_LOG_FILENAME = "interview_log.json"
+
+# Mapping from platform name to Generator class
+AVAILABLE_GENERATORS: Dict[str, Type[BaseContentGenerator]] = {
+    "markdown": MarkdownGenerator,
+    "devto": DevtoGenerator,
+    "twitter": TwitterGenerator,
+    "linkedin": LinkedinGenerator,
+    # Add other generators here as they are created
+}
+
+# Default content types per platform (copied from generate command for now)
+DEFAULT_CONTENT_TYPES = {
+    "markdown": "announcement",
+    "devto": "deepdive",
+    "twitter": "thread_intro",
+    "linkedin": "post_summary",
+}
 
 
 @app.callback()
@@ -598,7 +616,7 @@ def publish(
         "Must match a configured platform.",
     ),
 ):
-    """Publishes a generated content file to the specified platform."""
+    """Publishes a single generated content file to a specific platform."""
     console = Console()
     logger.info(f"Attempting to publish '{content_file}' to platform '{platform}'")
 
@@ -762,6 +780,404 @@ def logs(
         typer.echo("\nStopped following log.")
     except Exception as e:
         typer.secho(f"Error reading log file: {e}", fg=typer.colors.RED)
+
+
+# --- Interactive Workflow Command ---
+
+
+@app.command(name="run")
+def interactive_workflow(ctx: typer.Context):
+    """Runs the full workflow interactively: Analyze -> Interview -> Generate -> Publish."""
+    console = Console()
+    console.print(Markdown("# Build Influence Interactive Workflow"))
+
+    # --- Context Setup ---
+    analysis_dir: Path = ctx.obj["ANALYSIS_DIR"]
+    interview_dir: Path = ctx.obj["INTERVIEW_DIR"]
+    content_output_dir: Path = ctx.obj["CONTENT_OUTPUT_DIR"]
+
+    # --- 1. Get Repository Path ---
+    repo_path_str = Prompt.ask(
+        "[bold cyan]Enter the path to the local code repository to analyze[/]",
+        default=".",
+    )
+    repo_path = Path(repo_path_str).resolve()
+
+    if not repo_path.is_dir() or not repo_path.exists():
+        console.print(
+            f"[bold red]Error:[/bold red] Path '{repo_path}' is not a valid directory."
+        )
+        raise typer.Exit(code=1)
+
+    safe_repo_name = "".join(c if c.isalnum() else "_" for c in repo_path.name)
+    analysis_file_path = analysis_dir / f"{safe_repo_name}_analysis.json"
+    interview_log_file = interview_dir / f"{safe_repo_name}_interview.json"
+
+    console.print(f"\nAnalyzing repository: [blue]{repo_path}[/blue]")
+    logger.info(f"Starting interactive analysis for repository: {repo_path}")
+
+    # --- 2. Run Analysis ---
+    analysis_results = None
+    if analysis_file_path.exists():
+        if Confirm.ask(
+            f"Analysis file [magenta]'{analysis_file_path}'[/magenta] already exists. Use existing file?",
+            default=True,
+        ):
+            try:
+                with open(analysis_file_path, "r") as f:
+                    analysis_results = json.load(f)
+                console.print(
+                    f"Loaded existing analysis from [green]{analysis_file_path}[/green]"
+                )
+                logger.info(f"Loaded existing analysis file: {analysis_file_path}")
+            except Exception as e:
+                console.print(
+                    f"[bold red]Error:[/bold red] Failed to load existing analysis file: {e}"
+                )
+                logger.error(
+                    f"Failed to load existing analysis {analysis_file_path}: {e}",
+                    exc_info=True,
+                )
+                if not Confirm.ask("Proceed with re-analysis?", default=True):
+                    raise typer.Exit()
+                analysis_results = None  # Force re-analysis
+        else:
+            logger.info("User chose to re-analyze.")
+
+    if analysis_results is None:
+        console.print("Running repository analysis... this might take a moment.")
+        try:
+            analyzer = RepositoryAnalyzer(str(repo_path))
+            analysis_results = analyzer.analyze()
+            analysis_results["original_repo_path"] = str(
+                repo_path
+            )  # Ensure path is stored
+
+            analysis_file_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(analysis_file_path, "w") as f:
+                json.dump(analysis_results, f, indent=2)
+            console.print(
+                f"Analysis complete. Results saved to [green]{analysis_file_path}[/green]"
+            )
+            logger.info(f"Analysis successful. Saved to {analysis_file_path}")
+        except Exception as e:
+            console.print(f"[bold red]Error during analysis:[/bold red] {e}")
+            logger.error(f"Analysis failed: {e}", exc_info=True)
+            raise typer.Exit(code=1)
+
+    # --- 3. Conduct Interview ---
+    console.print(Markdown("\n---\n## Step 2: Conduct Interview"))
+
+    interview_data = None
+    if interview_log_file.exists():
+        if Confirm.ask(
+            f"Interview log [magenta]'{interview_log_file}'[/magenta] already exists. Use existing log?",
+            default=True,
+        ):
+            try:
+                with open(interview_log_file, "r") as f:
+                    interview_data = json.load(
+                        f
+                    )  # Assuming log format is list of dicts
+                console.print(
+                    f"Loaded existing interview log from [green]{interview_log_file}[/green]"
+                )
+                logger.info(f"Loaded existing interview log: {interview_log_file}")
+            except Exception as e:
+                console.print(
+                    f"[bold red]Error:[/bold red] Failed to load existing interview log: {e}"
+                )
+                logger.error(
+                    f"Failed to load existing interview log {interview_log_file}: {e}",
+                    exc_info=True,
+                )
+                if not Confirm.ask("Proceed with new interview?", default=True):
+                    console.print("[yellow]Skipping interview step.[/yellow]")
+                else:
+                    interview_data = None  # Force new interview
+        else:
+            logger.info("User chose to conduct a new interview.")
+            interview_data = None
+
+    if interview_data is None:
+        if Confirm.ask(
+            "\nProceed with AI-powered interview based on analysis?", default=True
+        ):
+            console.print("Starting interview... Answer the questions below.")
+            try:
+                interviewer = Interviewer(analysis_results)
+                interview_results_list = interviewer.conduct_interview()
+
+                if interview_results_list:
+                    interview_data = [
+                        {"question": q, "answer": a} for q, a in interview_results_list
+                    ]
+                    try:
+                        interview_log_file.parent.mkdir(parents=True, exist_ok=True)
+                        with open(interview_log_file, "w") as f:
+                            json.dump(interview_data, f, indent=2)
+                        console.print(
+                            f"Interview log saved to [green]{interview_log_file}[/green]"
+                        )
+                        logger.info(f"Interview log saved: {interview_log_file}")
+                    except Exception as e:
+                        console.print(
+                            f"[bold red]Error:[/bold red] Failed to save interview log: {e}"
+                        )
+                        logger.error(
+                            f"Failed to save interview log: {e}", exc_info=True
+                        )
+                else:
+                    console.print(
+                        "[yellow]Interview completed, but no answers recorded.[/yellow]"
+                    )
+                    logger.warning("Interview finished with no recorded answers.")
+                    # Proceed without interview data
+
+            except Exception as e:
+                console.print(f"[bold red]Error during interview:[/bold red] {e}")
+                logger.error(f"Interview failed: {e}", exc_info=True)
+                # Decide if we should exit or allow proceeding without interview
+                if not Confirm.ask(
+                    "Interview failed. Continue to content generation without interview data?",
+                    default=False,
+                ):
+                    raise typer.Exit(code=1)
+        else:
+            console.print("[yellow]Skipping interview step.[/yellow]")
+            logger.info("User skipped interview step.")
+
+    # --- 4. Generate Content ---
+    console.print(Markdown("\n---\n## Step 3: Generate Content"))
+    generated_content_files: List[Tuple[str, Path]] = []  # Store (platform, path)
+
+    # Prepare generation context
+    generation_context = analysis_results or {}
+    if interview_data:
+        generation_context["interview_summary"] = "\n".join(
+            [f"Q: {item['question']}\nA: {item['answer']}" for item in interview_data]
+        )
+        generation_context["interview_raw"] = interview_data
+
+    # Ask user which platforms to generate for
+    available_platform_names = list(AVAILABLE_GENERATORS.keys())
+    selected_platforms_str = Prompt.ask(
+        f"[bold cyan]Enter platforms to generate content for (comma-separated)[/bold cyan]\
+        Available: {', '.join(available_platform_names)}\
+        (Leave blank to skip generation)",
+        default=",".join(available_platform_names),  # Default to all
+    )
+
+    if not selected_platforms_str.strip():
+        console.print("[yellow]Skipping content generation step.[/yellow]")
+        logger.info("User skipped content generation.")
+        selected_platforms = []
+    else:
+        selected_platforms = [
+            p.strip().lower() for p in selected_platforms_str.split(",")
+        ]
+
+    generation_output_base = content_output_dir / safe_repo_name
+    generation_output_base.mkdir(parents=True, exist_ok=True)
+
+    for platform in selected_platforms:
+        if platform not in AVAILABLE_GENERATORS:
+            console.print(
+                f"[yellow]Warning:[/yellow] Unknown platform '{platform}'. Skipping."
+            )
+            logger.warning(f"Skipping unknown generation platform: {platform}")
+            continue
+
+        console.print(
+            f"\nGenerating content for platform: [bold blue]{platform}[/bold blue]"
+        )
+        logger.info(f"Generating content for platform: {platform}")
+
+        try:
+            generator_class = AVAILABLE_GENERATORS[platform]
+            generator = generator_class(generation_context)
+
+            # Determine content type (using defaults for interactive flow)
+            current_content_type = DEFAULT_CONTENT_TYPES.get(platform)
+            if not current_content_type:
+                console.print(
+                    f"[yellow]Warning:[/yellow] No default content type found for {platform}. Using 'default'."
+                )
+                logger.warning(
+                    f"No default content type for {platform}, using 'default'."
+                )
+                current_content_type = "default"  # Fallback
+            else:
+                logger.info(
+                    f"Using default content type '{current_content_type}' for {platform}"
+                )
+
+            # Pass content_type to generate method
+            content_result = generator.generate(content_type=current_content_type)
+
+            if not content_result:
+                console.print(f"[yellow]No content generated for {platform}.[/yellow]")
+                logger.warning(f"Generator for {platform} returned no content.")
+                continue
+
+            # Determine filename (use generator's suggestion or default)
+            # Adjusted to use current_content_type in filename
+            filename_suggestion = f"{safe_repo_name}_{platform}_{current_content_type}.{generator.FILE_EXTENSION}"
+            content_string = content_result
+
+            output_file = generation_output_base / filename_suggestion
+
+            try:
+                with open(output_file, "w") as f:
+                    f.write(content_string)
+                console.print(
+                    f"Content for {platform} saved to [green]{output_file}[/green]"
+                )
+                logger.info(f"Content for {platform} saved to {output_file}")
+                generated_content_files.append((platform, output_file))
+            except Exception as e:
+                console.print(
+                    f"[bold red]Error:[/bold red] Failed to save content for {platform} to {output_file}: {e}"
+                )
+                logger.error(
+                    f"Failed to save content for {platform} to {output_file}: {e}",
+                    exc_info=True,
+                )
+
+        except Exception as e:
+            console.print(
+                f"[bold red]Error generating content for {platform}:[/bold red] {e}"
+            )
+            logger.error(f"Generation failed for {platform}: {e}", exc_info=True)
+            # Optionally ask to continue with other platforms
+
+    # --- 5. Publish Content ---
+    console.print(Markdown("\n---\n## Step 4: Publish Content"))
+
+    if not generated_content_files:
+        console.print(
+            "[yellow]No content files were generated. Skipping publication.[/yellow]"
+        )
+        logger.info("Skipping publication step as no content was generated.")
+    else:
+        console.print("The following content files were generated:")
+        publish_choices = {}
+        for i, (platform, file_path) in enumerate(generated_content_files):
+            display_path = (
+                file_path.relative_to(Path.cwd())
+                if file_path.is_relative_to(Path.cwd())
+                else file_path
+            )
+            console.print(
+                f"  [bold white]{i + 1}.[/bold white] [cyan]{platform:<10}[/cyan] -> [magenta]{display_path}[/magenta]"
+            )
+            publish_choices[str(i + 1)] = (platform, file_path)
+
+        publish_selection_str = Prompt.ask(
+            "\n[bold cyan]Enter the number(s) of the files to publish (comma-separated), or leave blank to skip[/bold cyan]",
+            default="",
+        )
+
+        if not publish_selection_str.strip():
+            console.print("[yellow]Skipping publication step.[/yellow]")
+            logger.info("User skipped publication step.")
+        else:
+            selected_indices = [
+                s.strip() for s in publish_selection_str.split(",") if s.strip()
+            ]
+            published_count = 0
+            failed_count = 0
+
+            for index in selected_indices:
+                if index in publish_choices:
+                    platform_to_publish, file_to_publish = publish_choices[index]
+                    console.print(
+                        f"\nAttempting to publish [magenta]{file_to_publish.name}[/magenta] to [blue]{platform_to_publish}[/blue]..."
+                    )
+
+                    # Double-check with user before potentially irreversible action
+                    if not Confirm.ask(
+                        f"Confirm publishing to {platform_to_publish}?", default=True
+                    ):
+                        console.print(
+                            f"[yellow]Skipped publishing {file_to_publish.name}.[/yellow]"
+                        )
+                        logger.info(f"User skipped publishing {file_to_publish}")
+                        continue
+
+                    try:
+                        # Read content from file
+                        with open(file_to_publish, "r") as f:
+                            content_to_publish = f.read()
+
+                        publisher = get_publisher(platform_to_publish)
+                        if not publisher:
+                            console.print(
+                                f"[bold red]Error:[/bold red] No publisher configured or found for platform '{platform_to_publish}'."
+                            )
+                            logger.error(
+                                f"No publisher found for {platform_to_publish}"
+                            )
+                            failed_count += 1
+                            continue
+
+                        # Assuming publisher needs PublicationContent object
+                        pub_content = PublicationContent(
+                            platform=platform_to_publish,
+                            content=content_to_publish,
+                            source_file=str(file_to_publish),
+                            # Add other metadata if needed/available
+                            title=f"Content from {safe_repo_name}",  # Basic title
+                        )
+
+                        # Perform the publication
+                        result: PublishResult = publisher.publish(pub_content)
+
+                        if result.success:
+                            console.print(
+                                f"[green]Successfully published to {platform_to_publish}[/green] {result.url or ''}"
+                            )
+                            logger.info(
+                                f"Successfully published {file_to_publish} to {platform_to_publish}. URL: {result.url}"
+                            )
+                            published_count += 1
+                        else:
+                            console.print(
+                                f"[bold red]Failed to publish to {platform_to_publish}:[/bold red] {result.message}"
+                            )
+                            logger.error(
+                                f"Failed to publish {file_to_publish} to {platform_to_publish}: {result.message}"
+                            )
+                            failed_count += 1
+
+                    except FileNotFoundError:
+                        console.print(
+                            f"[bold red]Error:[/bold red] Content file not found: {file_to_publish}"
+                        )
+                        logger.error(
+                            f"Publish failed: File not found {file_to_publish}"
+                        )
+                        failed_count += 1
+                    except Exception as e:
+                        console.print(
+                            f"[bold red]Error during publication to {platform_to_publish}:[/bold red] {e}"
+                        )
+                        logger.error(
+                            f"Publication to {platform_to_publish} failed: {e}",
+                            exc_info=True,
+                        )
+                        failed_count += 1
+                else:
+                    console.print(
+                        f"[yellow]Warning:[/yellow] Invalid selection '{index}'. Skipping."
+                    )
+
+            console.print(
+                f"\nPublication summary: {published_count} succeeded, {failed_count} failed."
+            )
+
+    console.print(Markdown("\n---\n## Workflow Complete"))
+    logger.info("Interactive workflow finished.")
 
 
 if __name__ == "__main__":

@@ -11,6 +11,8 @@ litellm.drop_params = True
 class BaseContentGenerator(ABC):
     """Abstract base class for content generators."""
 
+    FILE_EXTENSION = "txt"  # Default file extension
+
     def __init__(
         self,
         analysis_results: Dict[str, Any],

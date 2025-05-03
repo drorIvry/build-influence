@@ -7,6 +7,8 @@ from .base_generator import BaseContentGenerator
 class MarkdownGenerator(BaseContentGenerator):
     """Generates content in Markdown format."""
 
+    FILE_EXTENSION = "md"
+
     def _build_prompt(
         self,
         content_type: str,

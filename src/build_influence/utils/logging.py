@@ -15,7 +15,7 @@ def setup_logging():
     # Console logger
     logger.add(
         sys.stderr,
-        level=LOG_LEVEL,
+        level="ERROR",
         format=(
             "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
             "<level>{level: <8}</level> | "

@@ -7,6 +7,8 @@ from .base_generator import BaseContentGenerator
 class DevtoGenerator(BaseContentGenerator):
     """Generates content suitable for Dev.to articles."""
 
+    FILE_EXTENSION = "md"
+
     def _build_prompt(
         self,
         content_type: str,
