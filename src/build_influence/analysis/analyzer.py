@@ -510,7 +510,7 @@ if __name__ == "__main__":
         # Print first few files with AI insights if available
         for i, file_info in enumerate(result["file_tree"][:5]):
             print(
-                f"\n  File {i+1}: {file_info['path']} "
+                f"\n  File {i + 1}: {file_info['path']} "
                 f"({file_info['type']}, {file_info['size']}b)"
             )
             insights = None
