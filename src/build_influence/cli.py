@@ -997,59 +997,150 @@ def interactive_workflow(ctx: typer.Context):
             generator_class = AVAILABLE_GENERATORS[platform]
             generator = generator_class(generation_context)
 
-            # Determine content type (using defaults for interactive flow)
-            current_content_type = DEFAULT_CONTENT_TYPES.get(platform)
-            if not current_content_type:
+            # Determine content type
+            current_content_type = DEFAULT_CONTENT_TYPES.get(platform, "default")
+            logger.info(f"Using content type '{current_content_type}' for {platform}")
+
+            # --- Initial Generation ---
+            initial_content = None
+            with console.status(
+                f"Generating initial content for {platform}...", spinner="dots"
+            ):
+                initial_content = generator.generate(content_type=current_content_type)
+
+            if not initial_content:
                 console.print(
-                    f"[yellow]Warning:[/yellow] No default content type found for {platform}. Using 'default'."
+                    f"[yellow]Initial generation failed for {platform}. Skipping.[/yellow]"
                 )
                 logger.warning(
-                    f"No default content type for {platform}, using 'default'."
+                    f"Initial generation for {platform} returned no content."
                 )
-                current_content_type = "default"  # Fallback
-            else:
-                logger.info(
-                    f"Using default content type '{current_content_type}' for {platform}"
-                )
-
-            # Pass content_type to generate method
-            content_result = generator.generate(content_type=current_content_type)
-
-            if not content_result:
-                console.print(f"[yellow]No content generated for {platform}.[/yellow]")
-                logger.warning(f"Generator for {platform} returned no content.")
                 continue
 
-            # Determine filename (use generator's suggestion or default)
-            # Adjusted to use current_content_type in filename
-            filename_suggestion = f"{safe_repo_name}_{platform}_{current_content_type}.{generator.FILE_EXTENSION}"
-            content_string = content_result
+            console.print("✨ Initial content generated successfully! ✨")
 
-            output_file = generation_output_base / filename_suggestion
+            # --- Feedback and Refinement Loop ---
+            current_content = initial_content
+            previous_content = None
+            can_revert = False
+            user_action = None  # To track save/discard
 
-            try:
-                with open(output_file, "w") as f:
-                    f.write(content_string)
+            while True:
+                # Clear screen for cleaner UX (optional, can be removed)
+                # os.system("cls" if os.name == "nt" else "clear")
+
+                console.rule(
+                    f"[bold blue]Preview & Refine ({platform} - {current_content_type})[/bold blue]"
+                )
+                is_markdown_output = platform in ["markdown", "devto"]
+                if is_markdown_output:
+                    console.print(Markdown(current_content))
+                else:
+                    console.print(current_content)
+                console.rule()
+
+                prompt_options = "Type feedback to refine, 'save', or 'discard'."
+                if can_revert:
+                    prompt_options += " Type 'revert' to undo last change."
+
+                feedback_input = Prompt.ask(
+                    f"\n{prompt_options}\n> ", default="", show_default=False
+                ).strip()
+
+                if feedback_input.lower() == "save":
+                    user_action = "save"
+                    break
+                elif feedback_input.lower() == "discard":
+                    user_action = "discard"
+                    break
+                elif feedback_input.lower() == "revert" and can_revert:
+                    if previous_content is not None:
+                        console.print("⏪ Reverting to previous version...")
+                        current_content = previous_content
+                        previous_content = None  # Clear after revert
+                        can_revert = False  # Disable until next change
+                    else:
+                        console.print(
+                            "[yellow]Cannot revert: No previous version stored.[/yellow]"
+                        )
+                elif feedback_input.lower() == "revert" and not can_revert:
+                    console.print(
+                        "[yellow]Cannot revert: No changes to undo yet.[/yellow]"
+                    )
+                elif feedback_input:  # User provided feedback
+                    console.print("🔄 Refining content based on feedback...")
+                    previous_content = current_content  # Store before refining
+                    can_revert = True
+                    new_content = None
+                    with console.status("Applying feedback...", spinner="dots"):
+                        try:
+                            new_content = generator.regenerate_with_feedback(
+                                original_content=current_content,
+                                feedback=feedback_input,
+                                content_type=current_content_type,
+                            )
+                        except Exception as regen_e:
+                            logger.error(
+                                f"Error during regeneration: {regen_e}", exc_info=True
+                            )
+                            console.print(
+                                f"[bold red]Error applying feedback:[/bold red] {regen_e}"
+                            )
+                            previous_content = None  # Failed, clear previous
+                            can_revert = False
+
+                    if new_content:
+                        console.print("✅ Refinement applied!")
+                        current_content = new_content
+                    else:
+                        console.print(
+                            "[yellow]Could not apply feedback. Keeping previous version.[/yellow]"
+                        )
+                        previous_content = None  # Failed, clear previous
+                        can_revert = False
+                else:  # Empty input
+                    console.print(
+                        "Please provide feedback, or type 'save'/'discard'"
+                        + ("/'revert'" if can_revert else ".")
+                    )
+            # --- End Feedback Loop ---
+
+            # --- Save or Discard --- #
+            if user_action == "save":
+                filename_suggestion = f"{safe_repo_name}_{platform}_{current_content_type}.{generator.FILE_EXTENSION}"
+                output_file = generation_output_base / filename_suggestion
+                try:
+                    with open(output_file, "w") as f:
+                        f.write(
+                            current_content
+                        )  # Write the final, possibly refined, content
+                    console.print(
+                        f"Content for {platform} saved to [green]{output_file}[/green]"
+                    )
+                    logger.info(f"Content for {platform} saved to {output_file}")
+                    generated_content_files.append((platform, output_file))
+                except Exception as e:
+                    console.print(
+                        f"[bold red]Error saving content for {platform} to {output_file}:[/bold red] {e}"
+                    )
+                    logger.error(
+                        f"Failed to save content for {platform} to {output_file}: {e}",
+                        exc_info=True,
+                    )
+            elif user_action == "discard":
                 console.print(
-                    f"Content for {platform} saved to [green]{output_file}[/green]"
+                    f"[yellow]Discarded content generation for {platform}.[/yellow]"
                 )
-                logger.info(f"Content for {platform} saved to {output_file}")
-                generated_content_files.append((platform, output_file))
-            except Exception as e:
-                console.print(
-                    f"[bold red]Error:[/bold red] Failed to save content for {platform} to {output_file}: {e}"
+                logger.info(
+                    f"User discarded content for {platform} after refinement loop."
                 )
-                logger.error(
-                    f"Failed to save content for {platform} to {output_file}: {e}",
-                    exc_info=True,
-                )
+            # else: Should not happen if loop exited correctly
 
         except Exception as e:
             console.print(
-                f"[bold red]Error generating content for {platform}:[/bold red] {e}"
+                f"[bold red]Error during generation/refinement for {platform}:[/bold red] {e}"
             )
             logger.error(f"Generation failed for {platform}: {e}", exc_info=True)
-            # Optionally ask to continue with other platforms
 
     # --- 5. Publish Content ---
     console.print(Markdown("\n---\n## Step 4: Publish Content"))
