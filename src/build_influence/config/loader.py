@@ -85,6 +85,12 @@ def load_config(config_path: str = DEFAULT_CONFIG_PATH) -> Box:
     )
     # Add other generation specific config if needed later
 
+    # Interview Specific Model
+    interview_conf = config_data.setdefault("interview", {})
+    interview_conf["model"] = os.environ.get(
+        "INTERVIEW_LLM_MODEL", interview_conf.get("model", main_llm_model)
+    )
+
     # Preferences
     pref_conf = config_data.setdefault("preferences", {})
     pref_conf["approval_workflow"] = os.environ.get(

@@ -33,6 +33,10 @@ class FeatureIdentifier:
             logger.debug(f"Sending context to LLM ({model}) for feature ID...")
             max_tokens = config.llm.max_tokens + MAX_FEATURE_ID_TOKENS_OFFSET
 
+            logger.info(
+                f"Using model: {model} to identify features",
+            )
+
             response = litellm.completion(
                 model=model,
                 messages=[{"role": "user", "content": prompt}],

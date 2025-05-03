@@ -36,10 +36,22 @@ class Interviewer:
         self.conversation_history: List[Tuple[str, str]] = []
         self.repo_name = self.analysis_results.get("repo_name", "this project")
         # Extract features, handling potential missing keys
-        high_level_features = self.analysis_results.get("high_level_features", {})
-        self.features = high_level_features.get("identified_features", [])
-        self.audience = high_level_features.get("target_audience", "developers")
-        self.selling_points = high_level_features.get("selling_points", [])
+        high_level_features = self.analysis_results.get(
+            "high_level_features",
+            {},
+        )
+        self.features = high_level_features.get(
+            "identified_features",
+            [],
+        )
+        self.audience = high_level_features.get(
+            "target_audience",
+            "developers",
+        )
+        self.selling_points = high_level_features.get(
+            "selling_points",
+            [],
+        )
         self.console = Console()  # Rich console instance
 
     def _clear_screen(self):
@@ -52,11 +64,17 @@ class Interviewer:
         """Helper method to call the LLM and handle basic errors."""
         logger.debug("Sending prompt to LLM:\n" + prompt)
         try:
+            interview_model = config.interview.get("model", config.llm.model)
+            # Assuming provider is consistent
+            llm_provider = config.llm.get("provider")
             model_string = (
-                f"{self.llm_provider}/{self.llm_model}"
-                if self.llm_provider
-                else self.llm_model
+                f"{llm_provider}/{interview_model}" if llm_provider else interview_model
             )
+
+            logger.info(
+                f"Using model: {model_string} to interview",
+            )
+
             response = litellm.completion(
                 model=model_string,
                 messages=[{"role": "user", "content": prompt}],
@@ -207,8 +225,22 @@ class Interviewer:
         initial_response = self._call_llm(initial_prompt, max_tokens=150)
         questions_to_ask = self._parse_questions(initial_response)
 
-        if not questions_to_ask:
-            logger.warning("LLM failed initial questions. Using fallbacks.")
+        if questions_to_ask:
+            self.console.print(
+                "[bold cyan]AI:[/bold cyan] Let's start! "
+                "I'll ask questions based on the analysis."
+            )
+        else:
+            self.console.print(
+                "[bold yellow]Warning:[/bold yellow] Could not generate "
+                "introductory question. Proceeding with defaults."
+            )
+            logger.warning(
+                "Failed to generate initial interview question. "
+                "LLM call likely failed."
+            )
+            # Fallback or default first question?
+            # For now, just proceed and let the loop handle it
             questions_to_ask = [
                 f"What was the main motivation for starting {self.repo_name}?",
                 "What primary problem did you aim to solve with it?",

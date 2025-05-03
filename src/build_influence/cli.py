@@ -417,7 +417,12 @@ def configure():
 
 @app.command()
 def logs(
-    lines: int = typer.Option(10, "--lines", "-n", help="Number of log lines to show."),
+    lines: int = typer.Option(
+        10,
+        "--lines",
+        "-n",
+        help="Number of log lines to show.",
+    ),
     follow: bool = typer.Option(False, "--follow", "-f", help="Follow log output."),
 ):
     """Displays the application log file."""

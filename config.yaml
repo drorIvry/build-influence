@@ -34,7 +34,8 @@ analysis:
     - javascript
     - markdown
     - rst # reStructuredText
-
+interview:
+  model: "o3-mini"
 # Content Generation settings
 generation:
   default_tone: "informative and slightly informal"

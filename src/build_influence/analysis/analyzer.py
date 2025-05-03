@@ -12,7 +12,7 @@ from build_influence.analysis.feature_identifier import FeatureIdentifier
 
 litellm.drop_params = True
 # Constants
-MAX_FILE_SIZE_BYTES = 500 * 1024  # Limit file size for AI analysis (e.g., 500KB)
+MAX_FILE_SIZE_BYTES = 500 * 1024  # Limit file size (e.g., 500KB)
 
 
 class RepositoryAnalyzer:
@@ -74,7 +74,10 @@ class RepositoryAnalyzer:
         file_info_map = {info["absolute_path"]: info for info in file_tree}
         progress_desc = "AI File Analysis"
         for file_to_analyze in tqdm(
-            files_to_process, desc=progress_desc, total=num_files_for_ai, unit="file"
+            files_to_process,
+            desc=progress_desc,
+            total=num_files_for_ai,
+            unit="file",
         ):
             abs_path_str = file_to_analyze["absolute_path"]
             file_info = file_info_map.get(abs_path_str)
@@ -107,7 +110,7 @@ class RepositoryAnalyzer:
                     logger.error(f"{e}")
                     file_info[result_key] = {"error": str(e)}
         # -----------------------------------------
-        logger.info(f"AI file analysis complete. ")
+        logger.info("AI file analysis complete.")
         logger.info(f"Analyzed {self.files_analyzed_count} files.")
 
         # --- High-Level Feature Identification Step ---
@@ -121,7 +124,7 @@ class RepositoryAnalyzer:
         logger.info("Starting high-level feature identification...")
         feature_identifier = FeatureIdentifier()
         high_level_features = feature_identifier.identify_features(interim_result)
-        logger.info(f"Completed high-level feature identification.")
+        logger.info("Completed high-level feature identification.")
         # --------------------------------------------
 
         # --- Final Result ---
@@ -146,7 +149,11 @@ class RepositoryAnalyzer:
                 # Get current branch
                 cmd = ["git", "rev-parse", "--abbrev-ref", "HEAD"]
                 result = subprocess.run(
-                    cmd, cwd=self.repo_path, capture_output=True, text=True, check=True
+                    cmd,
+                    cwd=self.repo_path,
+                    capture_output=True,
+                    text=True,
+                    check=True,
                 )
                 metadata["current_branch"] = result.stdout.strip()
                 logger.debug(f"Git branch: {metadata['current_branch']}")
@@ -154,7 +161,11 @@ class RepositoryAnalyzer:
                 # Get all branches
                 cmd = ["git", "branch"]
                 result = subprocess.run(
-                    cmd, cwd=self.repo_path, capture_output=True, text=True, check=True
+                    cmd,
+                    cwd=self.repo_path,
+                    capture_output=True,
+                    text=True,
+                    check=True,
                 )
                 branches = [b.strip().lstrip("* ") for b in result.stdout.splitlines()]
                 metadata["branches"] = branches
@@ -202,7 +213,8 @@ class RepositoryAnalyzer:
 
         file_count = len(file_tree)
         logger.info(
-            f"Scanned {potential_files_count} items. Found {file_count} relevant files."
+            f"Scanned {potential_files_count} items. "
+            f"Found {file_count} relevant files."
         )
         # The actual limit is applied during the AI analysis step
         return file_tree
@@ -304,22 +316,26 @@ class RepositoryAnalyzer:
             # --- Call LiteLLM ---
             # Use the analysis-specific model, falling back to the general LLM model
             analysis_model = config.analysis.get("model", config.llm.model)
-            llm_provider = config.llm.get("provider")  # Assuming provider is consistent
+            # Assuming provider is consistent
+            llm_provider = config.llm.get("provider")
             model_string = (
                 f"{llm_provider}/{analysis_model}" if llm_provider else analysis_model
             )
 
+            logger.info(f"Using model: {model_string} to analyze {file_name}")
             # logger.debug(f"Sending {file_name} to LLM ({model_string})...")
             response = litellm.completion(
                 model=model_string,
                 messages=messages,
-                temperature=config.llm.temperature,  # Keep general temp/tokens for now
+                # Keep general temp/tokens for now
+                temperature=config.llm.temperature,
                 max_tokens=config.llm.max_tokens,
             )
 
             # --- Process Response ---
             ai_response_content = response.choices[0].message.content
-            # logger.debug(f"LLM response received for {file_name}.") # Too verbose
+            # logger.debug(f"LLM response received for {file_name}.")
+            # Too verbose
 
             try:
                 json_start = ai_response_content.find("{")
@@ -334,7 +350,8 @@ class RepositoryAnalyzer:
 
                 # Return the parsed JSON directly
                 insights = parsed_json
-                # logger.debug(f"Parsed AI insights for {file_name}") # Too verbose
+                # logger.debug(f"Parsed AI insights for {file_name}")
+                # Too verbose
 
             except json.JSONDecodeError as json_e:
                 err = f"Failed to decode AI JSON response: {json_e}"
@@ -360,7 +377,8 @@ class RepositoryAnalyzer:
         prompt_template = (
             "Analyze code file `{file_name}`. Respond ONLY with JSON: "
             '{{"purpose": "<summary>", "key_elements": ["func1", "ClassA"], '
-            '"dependencies": ["import os"], "interesting_aspects": ["uses xyz pattern"]}}. '
+            '"dependencies": ["import os"], "interesting_aspects": '
+            '["uses xyz pattern"]}}. '
             "Use lists/null if empty. "
             "```\n{content}\n``` JSON Output:"
         )
@@ -368,9 +386,14 @@ class RepositoryAnalyzer:
         raw_insights = self._analyze_file_content_with_ai(file_path, prompt_template)
 
         # --- Debugging Log ---
-        # logger.debug(f"Code file {file_path.name}: Raw insights type: {type(raw_insights)}")
+        # logger.debug(
+        #    f"Code file {file_path.name}: Raw insights type: {type(raw_insights)}"
+        # )
         # if isinstance(raw_insights, dict):
-        #     logger.debug(f"Code file {file_path.name}: Raw insights keys: {list(raw_insights.keys())}")
+        #     logger.debug(
+        #        f"Code file {file_path.name}: Raw insights keys: "
+        #        f"{list(raw_insights.keys())}"
+        #     )
         # ---------------------
 
         # Extract expected keys or return error
@@ -379,13 +402,17 @@ class RepositoryAnalyzer:
         elif isinstance(raw_insights, dict):
             try:
                 # --- Detailed Extraction Logging ---
-                # logger.debug(f"Attempting code key extraction from: {raw_insights!r}")
+                # logger.debug(
+                #    f"Attempting code key extraction from: {raw_insights!r}"
+                # )
                 purpose = raw_insights.get("purpose")
                 # logger.debug(f"Code Purpose extracted: {purpose!r}")
                 elements = raw_insights.get("key_elements", [])
                 # logger.debug(f"Code Elements extracted: {elements!r}")
                 dependencies = raw_insights.get("dependencies", [])
-                # logger.debug(f"Code Dependencies extracted: {dependencies!r}")
+                # logger.debug(
+                #    f"Code Dependencies extracted: {dependencies!r}"
+                # )
                 aspects = raw_insights.get("interesting_aspects", [])
                 # logger.debug(f"Code Aspects extracted: {aspects!r}")
                 # --- End Detailed Logging ---
@@ -398,18 +425,19 @@ class RepositoryAnalyzer:
                 }
             except Exception as e:
                 logger.error(
-                    f"Exception during code key extraction for {file_path.name}: {e!r}"
+                    f"Exception during code key extraction for "
+                    f"{file_path.name}: {e!r}"
                 )
                 logger.error(f"Problematic code raw_insights: {raw_insights!r}")
                 return {"error": f"Internal error processing AI code response: {e!r}"}
         else:
             logger.warning(
-                f"Unexpected AI format for code {file_path.name}: {type(raw_insights)}"
+                f"Unexpected AI format for code {file_path.name}: "
+                f"{type(raw_insights)}"
             )
             return {"error": "Unexpected AI response format"}
 
     def _analyze_doc_file_with_ai(self, file_path: Path) -> Dict[str, Any]:
-        """Prepares prompt and calls generic AI analyzer for documentation files."""
         prompt_template = (
             "Analyze doc file `{file_name}`. Respond ONLY with JSON: "
             "{{'summary': '<purpose>', 'features': ['feat1'], "
@@ -423,28 +451,14 @@ class RepositoryAnalyzer:
             prompt_template,
         )
 
-        # --- Debugging Log ---
-        # logger.debug(f"Doc file {file_path.name}: Raw insights type: {type(raw_insights)}")
-        # if isinstance(raw_insights, dict):
-        #     logger.debug(f"Doc file {file_path.name}: Raw insights keys: {list(raw_insights.keys())}")
-        # ---------------------
-
-        # Extract expected keys or return error
         if isinstance(raw_insights, dict) and raw_insights.get("error"):
             return raw_insights  # Return error dict as is
         elif isinstance(raw_insights, dict):
             try:
-                # --- Detailed Extraction Logging ---
-                # logger.debug(f"Attempting doc key extraction from: {raw_insights!r}")
                 summary = raw_insights.get("summary")
-                # logger.debug(f"Doc Summary extracted: {summary!r}")
                 features = raw_insights.get("features", [])
-                # logger.debug(f"Doc Features extracted: {features!r}")
                 setup_steps = raw_insights.get("setup_steps", [])
-                # logger.debug(f"Doc Setup extracted: {setup_steps!r}")
                 usage_examples = raw_insights.get("usage_examples", [])
-                # logger.debug(f"Doc Usage extracted: {usage_examples!r}")
-                # --- End Detailed Logging ---
 
                 return {
                     "summary": summary,
@@ -454,13 +468,15 @@ class RepositoryAnalyzer:
                 }
             except Exception as e:
                 logger.error(
-                    f"Exception during doc key extraction for {file_path.name}: {e!r}"
+                    f"Exception during doc key extraction for "
+                    f"{file_path.name}: {e!r}"
                 )
                 logger.error(f"Problematic doc raw_insights: {raw_insights!r}")
                 return {"error": f"Internal error processing AI doc response: {e!r}"}
         else:
             logger.warning(
-                f"Unexpected AI format for doc {file_path.name}: {type(raw_insights)}"
+                f"Unexpected AI format for doc {file_path.name}: "
+                f"{type(raw_insights)}"
             )
             return {"error": "Unexpected AI response format"}
 
@@ -482,13 +498,15 @@ if __name__ == "__main__":
         print(f"Metadata: {result['metadata']}")
         print(f"AI Files Analyzed: {result['files_analyzed_count']}")
         print(
-            f"Total Files in Tree: {len(result['file_tree'])} (limit: {analyzer.max_files_to_analyze})"
+            f"Total Files in Tree: {len(result['file_tree'])} "
+            f"(limit: {analyzer.max_files_to_analyze})"
         )
 
         # Print first few files with AI insights if available
         for i, file_info in enumerate(result["file_tree"][:5]):
             print(
-                f"\n  File {i+1}: {file_info['path']} ({file_info['type']}, {file_info['size']}b)"
+                f"\n  File {i+1}: {file_info['path']} "
+                f"({file_info['type']}, {file_info['size']}b)"
             )
             insights = None
             if "ai_code_insights" in file_info:
@@ -508,7 +526,9 @@ if __name__ == "__main__":
                     print(f"      Summary: {insights.get('summary', 'N/A')}")
                     print(f"      Features: {insights.get('features', [])}")
                     # print(f"      Setup: {insights.get('setup_steps', [])}")
-                    # print(f"      Usage: {insights.get('usage_examples', [])}")
+                    # print(
+                    #    f"      Usage: {insights.get('usage_examples', [])}"
+                    # )
 
         if len(result["file_tree"]) > 5:
             print("\n  ...")

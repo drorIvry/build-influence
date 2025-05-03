@@ -61,7 +61,9 @@ class BaseContentGenerator(ABC):
         logger.debug(f"Sending content generation prompt to LLM ({model_string}):")
         logger.trace(prompt)  # Use trace for potentially long prompts
         try:
-            # model_string is already constructed above
+            logger.info(
+                f"Using model: {model_string} to generate content",
+            )
             response = litellm.completion(
                 model=model_string,
                 messages=[{"role": "user", "content": prompt}],
