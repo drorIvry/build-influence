@@ -76,8 +76,8 @@ class LinkedinGenerator(BaseContentGenerator):
 2. Focus on the value proposition, achievements, or key learnings.
 3. Maintain a professional and engaging tone suitable for LinkedIn.
 4. Use appropriate formatting (bullet points, maybe bolding key terms).
-5. If '{content_type}' is 'announcement', highlight the launch/update 
-   professionally. If 'deepdive', focus on technical achievements or 
+5. If '{content_type}' is 'announcement', highlight the launch/update
+   professionally. If 'deepdive', focus on technical achievements or
    learnings.
 6. Consider adding relevant professional hashtags (e.g., #SoftwareDevelopment,
    #Tech, #ProjectManagement).

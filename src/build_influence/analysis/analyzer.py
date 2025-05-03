@@ -1,6 +1,6 @@
 import subprocess
 from pathlib import Path
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Optional
 import litellm
 import json
 from tqdm import tqdm
@@ -128,7 +128,7 @@ class RepositoryAnalyzer:
         # --------------------------------------------
 
         # --- Final Result ---
-        final_analysis_result = {
+        final_analysis_result: Dict[str, Any] = {
             **interim_result,
             "high_level_features": high_level_features,
         }
@@ -185,7 +185,7 @@ class RepositoryAnalyzer:
     def _build_file_tree(self) -> List[Dict[str, Any]]:
         """Scan directory structure and build a list of files to consider."""
         logger.debug("Building file tree...")
-        file_tree = []
+        file_tree: List[Dict[str, Any]] = []
         potential_files_count = 0
 
         try:
@@ -196,7 +196,7 @@ class RepositoryAnalyzer:
 
                 try:
                     relative_path = item.relative_to(self.repo_path)
-                    file_info = {
+                    file_info: Dict[str, Any] = {
                         "path": str(relative_path),
                         "absolute_path": str(item),
                         "size": item.stat().st_size,
@@ -269,7 +269,7 @@ class RepositoryAnalyzer:
         Generic helper to analyze file content using LiteLLM with a specific
         prompt.
         """
-        insights = {"error": None}
+        insights: Dict[str, Any] = {"error": None}
         file_name = file_path.name
 
         try:
@@ -406,15 +406,17 @@ class RepositoryAnalyzer:
                 # logger.debug(
                 #    f"Attempting code key extraction from: {raw_insights!r}"
                 # )
-                purpose = raw_insights.get("purpose")
+                purpose: Optional[str] = raw_insights.get("purpose")
                 # logger.debug(f"Code Purpose extracted: {purpose!r}")
-                elements = raw_insights.get("key_elements", [])
+                elements: Optional[List[str]] = raw_insights.get("key_elements", [])
                 # logger.debug(f"Code Elements extracted: {elements!r}")
-                dependencies = raw_insights.get("dependencies", [])
+                dependencies: Optional[List[str]] = raw_insights.get("dependencies", [])
                 # logger.debug(
                 #    f"Code Dependencies extracted: {dependencies!r}"
                 # )
-                aspects = raw_insights.get("interesting_aspects", [])
+                aspects: Optional[List[str]] = raw_insights.get(
+                    "interesting_aspects", []
+                )
                 # logger.debug(f"Code Aspects extracted: {aspects!r}")
                 # --- End Detailed Logging ---
 
@@ -456,10 +458,12 @@ class RepositoryAnalyzer:
             return raw_insights  # Return error dict as is
         elif isinstance(raw_insights, dict):
             try:
-                summary = raw_insights.get("summary")
-                features = raw_insights.get("features", [])
-                setup_steps = raw_insights.get("setup_steps", [])
-                usage_examples = raw_insights.get("usage_examples", [])
+                summary: Optional[str] = raw_insights.get("summary")
+                features: Optional[List[str]] = raw_insights.get("features", [])
+                setup_steps: Optional[List[str]] = raw_insights.get("setup_steps", [])
+                usage_examples: Optional[List[str]] = raw_insights.get(
+                    "usage_examples", []
+                )
 
                 return {
                     "summary": summary,
@@ -506,7 +510,7 @@ if __name__ == "__main__":
         # Print first few files with AI insights if available
         for i, file_info in enumerate(result["file_tree"][:5]):
             print(
-                f"\n  File {i+1}: {file_info['path']} "
+                f"\n  File {i + 1}: {file_info['path']} "
                 f"({file_info['type']}, {file_info['size']}b)"
             )
             insights = None

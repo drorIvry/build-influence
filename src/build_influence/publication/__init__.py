@@ -1,5 +1,7 @@
 # Publication module
 
+from typing import Type
+
 from .base_publisher import BasePublisher, PublicationContent, PublishResult
 from .linkedin_publisher import LinkedInPublisher
 from .devto_publisher import DevToPublisher
@@ -17,14 +19,15 @@ _publisher_map = {
 
 def get_publisher(platform_name: str) -> BasePublisher | None:
     """Factory function to get a publisher instance for the platform name."""
-    publisher_class = _publisher_map.get(platform_name.lower())
+    publisher_class: Type[BasePublisher] | None = _publisher_map.get(
+        platform_name.lower()
+    )
     if publisher_class:
         return publisher_class()
     return None
 
 
 __all__ = [
-    "BasePublisher",
     "PublicationContent",
     "PublishResult",
     "LinkedInPublisher",

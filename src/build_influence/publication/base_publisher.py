@@ -24,7 +24,7 @@ class BasePublisher(ABC):
     platform_name: str = "Base"
 
     @abstractmethod
-    async def publish(self, content: PublicationContent, config: dict) -> PublishResult:
+    def publish(self, content: PublicationContent, config: dict) -> PublishResult:
         """
         Publishes the given content to the specific platform.
 
