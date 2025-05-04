@@ -10,8 +10,6 @@ LOG_RETENTION = os.environ.get("LOG_RETENTION", "30 days")
 
 def setup_logging():
     """Configures the Loguru logger."""
-    logger.remove()  # Remove default handler
-
     # Console logger
     logger.add(
         sys.stderr,

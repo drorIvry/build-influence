@@ -2,6 +2,12 @@
 
 `build-influence` is a Python command-line tool designed to analyze local code repositories, conduct AI-powered interviews about the codebase, and generate social media content (like blog posts or tweets) based on the analysis and interview insights.
 
+![Build Influence Logo](build-influence-logo.png)
+
+
+![Build Influence Demo](build-influence-demo.gif)
+
+
 ## Features
 
 - **Repository Analysis:** Scans local code repositories to understand structure, languages, key files, and potential points of interest.
